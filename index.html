@@ -229,6 +229,21 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .fg3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px}
 .prices-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px}
 
+/* PRICE NOTE TOOLTIP */
+.price-cell-wrap{position:relative;display:inline-flex;align-items:center;gap:3px}
+.note-btn{width:14px;height:14px;border-radius:50%;border:1px solid var(--border2);background:var(--card2);color:var(--text3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;transition:all .15s;position:relative}
+.note-btn:hover{border-color:var(--blue2);color:var(--blue2)}
+.note-btn.has-note{border-color:var(--amber);color:var(--amber);background:var(--amber-lt)}
+.note-btn.has-note:hover{background:var(--amber);color:#000}
+.note-tooltip{position:absolute;bottom:calc(100% + 6px);right:0;background:var(--navy2);color:#fff;font-size:11px;border-radius:6px;padding:6px 10px;white-space:nowrap;max-width:220px;white-space:normal;line-height:1.4;z-index:100;pointer-events:none;opacity:0;transform:translateY(4px);transition:all .15s;border:1px solid var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.5)}
+.note-btn:hover .note-tooltip,.note-btn:focus .note-tooltip{opacity:1;transform:translateY(0)}
+/* note input popup */
+.note-popup{position:absolute;bottom:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--border2);border-radius:var(--rl);padding:10px;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.6);display:none;width:220px}
+.note-popup.open{display:block}
+.note-popup textarea{width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:'Inter',sans-serif;resize:none;outline:none;margin-bottom:6px}
+.note-popup textarea:focus{border-color:var(--blue2)}
+.note-popup-actions{display:flex;gap:6px;justify-content:flex-end}
+
 /* TOAST */
 .toast{position:fixed;bottom:22px;right:22px;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;border:1px solid}
 .toast.show{opacity:1;transform:translateY(0)}
@@ -299,25 +314,25 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 <div class="overlay" id="m-add-product">
   <div class="modal modal-lg">
     <div class="modal-title">Add Product</div>
-    <div class="modal-sub">Add a new material. For products sold in multiple unit sizes (e.g. coil/reel/skid), add a pricing tier for each.</div>
+    <div class="modal-sub">Add a new material with pricing per supplier.</div>
     <div class="fg3" style="margin-bottom:14px">
-      <div class="form-group">
+      <div class="form-group" style="grid-column:span 2">
         <label class="form-label">Description</label>
-        <input class="form-inp" id="np-desc" placeholder='e.g. #12/2 AC90'>
+        <input class="form-inp" id="np-desc" placeholder='e.g. 2" EMT Connector'>
       </div>
       <div class="form-group">
         <label class="form-label">Section</label>
         <select class="form-select" id="np-section"></select>
       </div>
     </div>
-
-    <!-- PRICE TIERS -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="form-label">Price Tiers <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">— add one tier per unit size (e.g. 1ft, 240ft coil, 1000ft reel)</span></div>
-      <button class="btn btn-green" style="padding:4px 10px;font-size:11px" onclick="addPriceTier()"><i class="fa-solid fa-plus"></i> Add tier</button>
+    <div class="fg2" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="form-label">Unit label</label>
+        <input class="form-inp" id="np-unit" placeholder="e.g. ea, ft, /100, reel, coil">
+      </div>
     </div>
+    <div class="form-label" style="margin-bottom:8px">Supplier Prices</div>
     <div id="np-tiers"></div>
-
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('m-add-product')">Cancel</button>
       <button class="btn btn-green" onclick="saveProduct()"><i class="fa-solid fa-plus"></i> Add Product</button>
@@ -1381,7 +1396,7 @@ function copyPO(btn, sup) {
 function renderProducts() {
   const filterSec = document.getElementById('filter-asec').value;
   const searchQ   = (document.getElementById('prod-search')?.value || '').toLowerCase().trim();
-  const secMap = Object.fromEntries(D.sections.map(s => [s.id, s.name]));
+  const secMap    = Object.fromEntries(D.sections.map(s => [s.id, s.name]));
 
   const sel = document.getElementById('filter-asec');
   const cur = sel.value;
@@ -1395,76 +1410,101 @@ function renderProducts() {
   document.getElementById('prod-count').textContent = prods.length + ' items';
 
   document.getElementById('prod-thead').innerHTML = `<tr>
-    <th>Description</th><th>Section</th><th style="text-align:center">Unit / Tiers</th>
-    ${D.suppliers.map(s => `<th style="text-align:right;font-size:10px;min-width:85px">${s}</th>`).join('')}
-    <th style="text-align:center;width:60px">Del</th>
+    <th>Description</th><th>Section</th><th style="text-align:center">Per</th>
+    ${D.suppliers.map(s => `<th style="text-align:right;font-size:10px;min-width:92px">${s}</th>`).join('')}
+    <th style="text-align:center;width:55px">Del</th>
   </tr>`;
 
   document.getElementById('prod-tbody').innerHTML = prods.map(prod => {
-    // Support both legacy single-per products and new multi-tier products
-    // tiers = [{label, per, p:{sup:price}}] OR fall back to legacy {per, p}
-    const tiers = prod.tiers || [{ label: prod.per > 1 ? `/${prod.per}` : 'ea', per: prod.per, p: prod.p }];
+    // notes stored as prod.notes = { 'VAUGHAN': 'some note', ... }
+    const notes = prod.notes || {};
 
-    const tierRows = tiers.map((tier, ti) => {
-      const supCells = D.suppliers.map(sup => `
-        <td style="text-align:right;padding:3px 8px">
+    const supCells = D.suppliers.map(sup => {
+      const safeId = `${prod.id}__${sup.replace(/[^a-z0-9]/gi,'_')}`;
+      const note   = notes[sup] || '';
+      const hasNote = !!note;
+      const escapedNote = note.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+      return `<td style="text-align:right;padding:3px 8px">
+        <div class="price-cell-wrap">
           <input class="ep-inp" type="number" step="0.01" min="0"
-            value="${tier.p[sup]!==undefined ? tier.p[sup] : ''}" placeholder="—"
-            onchange="updateTierPrice('${prod.id}',${ti},'${sup}',this.value)">
-        </td>`).join('');
-
-      return `<tr style="border-top:${ti===0?'none':'1px dashed rgba(255,255,255,0.05)'}">
-        ${ti===0 ? `<td style="font-size:12px" rowspan="${tiers.length}">${prod.d}</td>
-                    <td rowspan="${tiers.length}"><span class="tag" style="font-size:10px">${secMap[prod.s]||''}</span></td>` : ''}
-        <td style="text-align:center;font-size:11px">
-          <input class="ep-inp" value="${tier.label}" placeholder="e.g. 1ft"
-            style="width:70px;text-align:center;font-family:'Inter',sans-serif"
-            onchange="updateTierLabel('${prod.id}',${ti},this.value)">
-        </td>
-        ${supCells}
-        ${ti===0 ? `<td style="text-align:center" rowspan="${tiers.length}">
-          <button class="btn" style="padding:3px 7px;font-size:10px;margin-bottom:3px;display:block;width:100%" onclick="addTierToProduct('${prod.id}')">+ tier</button>
-          <button class="btn btn-red" style="padding:3px 7px;font-size:11px;display:block;width:100%" onclick="deleteProd('${prod.id}')"><i class="fa-solid fa-trash"></i></button>
-        </td>` : `<td style="text-align:center">
-          <button class="btn btn-red" style="padding:2px 6px;font-size:10px" onclick="deleteTier('${prod.id}',${ti})" title="Remove this tier"><i class="fa-solid fa-minus"></i></button>
-        </td>`}
-      </tr>`;
+            value="${prod.p[sup]!==undefined ? prod.p[sup] : ''}" placeholder="—"
+            onchange="updatePrice('${prod.id}','${sup}',this.value)">
+          <button class="note-btn${hasNote?' has-note':''}" id="nbtn-${safeId}"
+            onclick="toggleNotePopup('${prod.id}','${sup}',event)" title="${hasNote?escapedNote:'Add note'}">
+            ${hasNote ? '<i class="fa-solid fa-circle-info" style="font-size:8px"></i>' : '+'}
+            ${hasNote ? `<span class="note-tooltip">${escapedNote}</span>` : ''}
+          </button>
+          <div class="note-popup" id="npop-${safeId}">
+            <textarea rows="2" placeholder="e.g. price valid until June, call for stock…" id="ntxt-${safeId}">${note}</textarea>
+            <div class="note-popup-actions">
+              <button class="btn" style="padding:3px 8px;font-size:11px" onclick="closeNotePopup('${safeId}')">Cancel</button>
+              <button class="btn btn-green" style="padding:3px 8px;font-size:11px" onclick="saveNote('${prod.id}','${sup}','${safeId}')">Save</button>
+            </div>
+          </div>
+        </div>
+      </td>`;
     }).join('');
 
-    return tierRows;
+    return `<tr>
+      <td style="font-size:12px">${prod.d}</td>
+      <td><span class="tag" style="font-size:10px">${secMap[prod.s]||''}</span></td>
+      <td style="text-align:center;padding:3px 6px">
+        <input class="ep-inp" type="text" value="${prod.unit||''}" placeholder="ea"
+          style="width:60px;text-align:center;font-family:'Inter',sans-serif;font-size:11px"
+          onchange="updateUnit('${prod.id}',this.value)" title="e.g. ea, /100, ft, reel">
+      </td>
+      ${supCells}
+      <td style="text-align:center">
+        <button class="btn btn-red" style="padding:3px 7px;font-size:11px" onclick="deleteProd('${prod.id}')">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
-function updateTierPrice(prodId, tierIdx, sup, val) {
+function updatePrice(prodId, sup, val) {
   const prod = D.products.find(p => p.id === prodId); if (!prod) return;
-  // Migrate legacy product to tiers on first edit
-  if (!prod.tiers) prod.tiers = [{ label: prod.per > 1 ? `/${prod.per}` : 'ea', per: prod.per, p: { ...prod.p } }];
   const v = parseFloat(val);
-  if (isNaN(v) || v <= 0) delete prod.tiers[tierIdx].p[sup];
-  else prod.tiers[tierIdx].p[sup] = v;
+  if (isNaN(v) || v <= 0) delete prod.p[sup]; else prod.p[sup] = v;
   saveD(); toast('Price updated', 'ok');
 }
 
-function updateTierLabel(prodId, tierIdx, val) {
+function updateUnit(prodId, val) {
   const prod = D.products.find(p => p.id === prodId); if (!prod) return;
-  if (!prod.tiers) prod.tiers = [{ label: prod.per > 1 ? `/${prod.per}` : 'ea', per: prod.per, p: { ...prod.p } }];
-  prod.tiers[tierIdx].label = val.trim();
+  prod.unit = val.trim();
   saveD();
 }
 
-function addTierToProduct(prodId) {
-  const prod = D.products.find(p => p.id === prodId); if (!prod) return;
-  if (!prod.tiers) prod.tiers = [{ label: prod.per > 1 ? `/${prod.per}` : 'ea', per: prod.per, p: { ...prod.p } }];
-  prod.tiers.push({ label: 'new unit', per: 1, p: {} });
-  saveD(); renderProducts(); toast('Tier added', 'ok');
+function toggleNotePopup(prodId, sup, e) {
+  e.stopPropagation();
+  const safeId = `${prodId}__${sup.replace(/[^a-z0-9]/gi,'_')}`;
+  // Close any other open popups first
+  document.querySelectorAll('.note-popup.open').forEach(p => {
+    if (p.id !== 'npop-' + safeId) p.classList.remove('open');
+  });
+  const pop = document.getElementById('npop-' + safeId);
+  if (!pop) return;
+  pop.classList.toggle('open');
+  if (pop.classList.contains('open')) {
+    document.getElementById('ntxt-' + safeId)?.focus();
+  }
 }
 
-function deleteTier(prodId, tierIdx) {
+function closeNotePopup(safeId) {
+  document.getElementById('npop-' + safeId)?.classList.remove('open');
+}
+
+function saveNote(prodId, sup, safeId) {
   const prod = D.products.find(p => p.id === prodId); if (!prod) return;
-  if (!prod.tiers) return;
-  if (prod.tiers.length <= 1) { toast('Cannot remove the last tier — delete the product instead', 'err'); return; }
-  prod.tiers.splice(tierIdx, 1);
-  saveD(); renderProducts(); toast('Tier removed', 'ok');
+  const note = document.getElementById('ntxt-' + safeId)?.value.trim() || '';
+  if (!prod.notes) prod.notes = {};
+  if (note) prod.notes[sup] = note; else delete prod.notes[sup];
+  saveD();
+  closeNotePopup(safeId);
+  renderProducts();
+  toast(note ? 'Note saved' : 'Note removed', 'ok');
 }
 
 function deleteProd(id) {
@@ -1473,80 +1513,36 @@ function deleteProd(id) {
   saveD(); renderProducts(); renderField(); toast('Product deleted', 'ok');
 }
 
-// ── Add product modal ──
-let npTierCount = 0;
-
 function openAddProduct() {
   const sel = document.getElementById('np-section');
   sel.innerHTML = D.sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   document.getElementById('np-desc').value = '';
-  npTierCount = 0;
-  document.getElementById('np-tiers').innerHTML = '';
-  addPriceTier(); // start with one tier
+  document.getElementById('np-unit').value = '';
+  document.getElementById('np-tiers').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+      ${D.suppliers.map(sup => `
+        <div class="form-group">
+          <label class="form-label" style="font-size:10px">${sup}</label>
+          <input class="form-inp" type="number" step="0.01" min="0" placeholder="—"
+            id="npp-${sup.replace(/[^a-z0-9]/gi,'_')}" style="padding:6px 8px;font-size:12px">
+        </div>`).join('')}
+    </div>`;
   openModal('m-add-product');
   setTimeout(() => document.getElementById('np-desc').focus(), 80);
-}
-
-function addPriceTier() {
-  const idx = npTierCount++;
-  const supInputs = D.suppliers.map(sup => `
-    <div class="form-group">
-      <label class="form-label" style="font-size:10px">${sup}</label>
-      <input class="form-inp" type="number" step="0.01" min="0" placeholder="—"
-        id="npt-${idx}-${sup.replace(/[^a-z0-9]/gi,'_')}" style="padding:6px 8px;font-size:12px">
-    </div>`).join('');
-
-  const tierEl = document.createElement('div');
-  tierEl.id = `nptier-${idx}`;
-  tierEl.style.cssText = 'background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:10px';
-  tierEl.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px">Tier ${idx+1}</span>
-        <input class="form-inp" id="npt-${idx}-label" placeholder="e.g. 1ft, 240ft coil, 1000ft reel"
-          style="width:200px;padding:5px 10px;font-size:12px" value="${idx===0?'ea':''}">
-      </div>
-      ${idx > 0 ? `<button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="removePriceTier(${idx})"><i class="fa-solid fa-minus"></i></button>` : ''}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">
-      ${supInputs}
-    </div>`;
-  document.getElementById('np-tiers').appendChild(tierEl);
-}
-
-function removePriceTier(idx) {
-  document.getElementById('nptier-' + idx)?.remove();
 }
 
 function saveProduct() {
   const desc = document.getElementById('np-desc').value.trim();
   const sec  = document.getElementById('np-section').value;
+  const unit = document.getElementById('np-unit').value.trim();
   if (!desc) { toast('Enter a description', 'err'); return; }
-
-  // Collect all tiers
-  const tiers = [];
-  for (let i = 0; i < npTierCount; i++) {
-    const tierEl = document.getElementById('nptier-' + i);
-    if (!tierEl) continue; // was removed
-    const label = document.getElementById(`npt-${i}-label`)?.value.trim() || 'ea';
-    const prices = {};
-    D.suppliers.forEach(sup => {
-      const inp = document.getElementById(`npt-${i}-${sup.replace(/[^a-z0-9]/gi,'_')}`);
-      if (inp) { const v = parseFloat(inp.value); if (!isNaN(v) && v > 0) prices[sup] = v; }
-    });
-    if (Object.keys(prices).length) tiers.push({ label, per: 1, p: prices });
-  }
-
-  if (!tiers.length) { toast('Enter at least one supplier price', 'err'); return; }
-
-  // Legacy fields for backward compat with field request / bestP()
-  const firstTier = tiers[0];
-  const firstSup  = Object.keys(firstTier.p)[0];
-  D.products.push({
-    id: 'p' + Date.now(), s: sec, d: desc,
-    per: firstTier.per, p: firstTier.p,  // legacy compat
-    tiers                                  // new multi-tier
+  const prices = {};
+  D.suppliers.forEach(sup => {
+    const inp = document.getElementById('npp-' + sup.replace(/[^a-z0-9]/gi,'_'));
+    if (inp) { const v = parseFloat(inp.value); if (!isNaN(v) && v > 0) prices[sup] = v; }
   });
+  if (!Object.keys(prices).length) { toast('Enter at least one supplier price', 'err'); return; }
+  D.products.push({ id: 'p' + Date.now(), s: sec, d: desc, per: 1, unit, p: prices });
   saveD(); closeModal('m-add-product'); renderProducts(); renderField();
   toast('Product added', 'ok');
 }
@@ -1859,7 +1855,13 @@ function jumpTo(id) {
 function openDrop() { if(document.getElementById('search-inp').value&&sRes.length) document.getElementById('sdrop').classList.add('open'); }
 function closeDrop() { document.getElementById('sdrop').classList.remove('open'); sIdx=-1; }
 function clearSearch() { document.getElementById('search-inp').value=''; document.getElementById('sclear').style.display='none'; sRes=[]; closeDrop(); }
-document.addEventListener('click', e => { if(!document.getElementById('search-area')?.contains(e.target)) closeDrop(); });
+document.addEventListener('click', e => {
+  if (!document.getElementById('search-area')?.contains(e.target)) closeDrop();
+  // Close note popups if click is outside any note popup or note button
+  if (!e.target.closest('.note-popup') && !e.target.closest('.note-btn')) {
+    document.querySelectorAll('.note-popup.open').forEach(p => p.classList.remove('open'));
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODALS / TOAST
