@@ -1634,17 +1634,22 @@ _toastT=setTimeout(()=>t.classList.remove(‘show’),2800);
 // ─────────────────────────────────────────────────────────────────────────────
 (async()=>{
 showLoading(‘Connecting…’);
-// Check for existing session
+// Fallback — always show login after 5 seconds no matter what
+const fallback = setTimeout(()=>{ hideLoading(); document.getElementById(‘g-email’).focus(); }, 5000);
+try {
 const {data:{session}}=await sb.auth.getSession();
 if(session?.user) {
 const {data:profile}=await sb.from(‘profiles’).select(’*’).eq(‘id’,session.user.id).single();
 if(profile) {
+clearTimeout(fallback);
 currentUser={…session.user,profile};
 role=profile.role;
 await boot();
 return;
 }
 }
+} catch(e) { console.error(‘Init error:’,e); }
+clearTimeout(fallback);
 hideLoading();
 setTimeout(()=>document.getElementById(‘g-email’).focus(),80);
 })();
