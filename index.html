@@ -298,6 +298,21 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
       onkeydown="if(event.key==='Enter')gateLogin()">
     <button class="gate-btn" onclick="gateLogin()"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
     <div class="gate-err" id="g-err"></div>
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="showForgotPw()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Inter',sans-serif">Forgot password?</button>
+    </div>
+
+    <!-- Forgot password panel (hidden by default) -->
+    <div id="forgot-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border2)">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;text-align:center">Enter your email to receive a reset link</div>
+      <input class="gate-inp" id="forgot-email" type="email" placeholder="your@email.com" style="margin-bottom:8px">
+      <button class="gate-btn" style="background:var(--navy2)" onclick="sendResetEmail()"><i class="fa-solid fa-envelope"></i> Send Reset Link</button>
+      <div class="gate-err" id="forgot-msg" style="color:var(--green)"></div>
+      <div style="text-align:center;margin-top:10px">
+        <button onclick="hideForgotPw()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Inter',sans-serif">Back to sign in</button>
+      </div>
+    </div>
+
     <div class="gate-footer">Mayfair Electric Ltd. &nbsp;·&nbsp; Internal use only</div>
   </div>
 </div>
@@ -407,6 +422,27 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   </div>
 </div>
 
+<!-- CHANGE PASSWORD -->
+<div class="overlay" id="m-change-pw">
+  <div class="modal">
+    <div class="modal-title"><i class="fa-solid fa-key" style="color:var(--amber);margin-right:8px"></i>Change Password</div>
+    <div class="modal-sub">Enter a new password for your account.</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label class="form-label">New Password</label>
+      <input class="form-inp" type="password" id="cp-new" placeholder="Min. 6 characters">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Confirm Password</label>
+      <input class="form-inp" type="password" id="cp-confirm" placeholder="Repeat password"
+        onkeydown="if(event.key==='Enter')doChangePw()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('m-change-pw')">Cancel</button>
+      <button class="btn btn-green" onclick="doChangePw()"><i class="fa-solid fa-check"></i> Update Password</button>
+    </div>
+  </div>
+</div>
+
 <!-- PO NUMBER PROMPT -->
 <div class="overlay" id="m-po-number">
   <div class="modal">
@@ -454,6 +490,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
     </div>
     <div class="topbar-right">
       <div class="user-chip"><i class="fa-solid fa-user"></i><span id="user-label">—</span></div>
+      <button class="icon-btn" onclick="openModal('m-change-pw')" title="Change password"><i class="fa-solid fa-key"></i></button>
       <button class="icon-btn" onclick="gateLogout()"><i class="fa-solid fa-right-from-bracket"></i> Sign out</button>
     </div>
   </div>
@@ -700,6 +737,44 @@ async function gateLogin() {
   currentUser = { ...data.user, profile };
   role = profile?.role || 'field';
   await boot();
+}
+
+function showForgotPw() {
+  document.getElementById('forgot-panel').style.display = 'block';
+  document.getElementById('forgot-email').value = document.getElementById('g-email').value || '';
+  document.getElementById('forgot-msg').textContent = '';
+}
+function hideForgotPw() {
+  document.getElementById('forgot-panel').style.display = 'none';
+}
+
+async function sendResetEmail() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msg = document.getElementById('forgot-msg');
+  if (!email) { msg.style.color='var(--red)'; msg.textContent = 'Enter your email.'; return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+  if (error) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = error.message;
+  } else {
+    msg.style.color = 'var(--green)';
+    msg.textContent = 'Reset link sent! Check your email.';
+  }
+}
+
+async function doChangePw() {
+  const pw = document.getElementById('cp-new').value.trim();
+  const conf = document.getElementById('cp-confirm').value.trim();
+  if (!pw || pw.length < 6) { toast('Password must be 6+ characters', 'err'); return; }
+  if (pw !== conf) { toast('Passwords do not match', 'err'); return; }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) { toast(error.message, 'err'); return; }
+  closeModal('m-change-pw');
+  document.getElementById('cp-new').value = '';
+  document.getElementById('cp-confirm').value = '';
+  toast('Password updated successfully ✓', 'ok');
 }
 
 async function gateLogout() {
