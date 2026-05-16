@@ -1785,6 +1785,14 @@ function toast(msg,type='ok') {
   showLoading('Connecting…');
   const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email').focus(); }, 5000);
   try {
+    // Load branding early so login screen shows correct logo
+    const {data:brandData} = await sb.from('settings').select('*').in('key',['brand_name1','brand_name2','brand_logo']);
+    if(brandData) brandData.forEach(s=>{
+      if(s.key==='brand_name1') D.settings.brand_name1=s.value;
+      if(s.key==='brand_name2') D.settings.brand_name2=s.value;
+      if(s.key==='brand_logo') D.settings.brand_logo=s.value;
+    });
+    applyBranding();
     // Check if this is a password reset redirect
     const hash = window.location.hash;
     if(hash.includes('type=recovery') || hash.includes('error=access_denied')) {
