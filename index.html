@@ -1476,8 +1476,12 @@ async function renderUsers() {
     const isMe = u.id===currentUser?.id;
     const locked = !!u.locked;
     const safeId = u.id.replace(/-/g,'_');
+    const displayEmail = u.id===currentUser?.id ? currentUser?.email : '';
     return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}${locked?';opacity:.55':''}">
-      <td style="padding:8px 12px;font-weight:500">${u.username||'—'} ${locked?'<span class="badge badge-red" style="font-size:9px">locked</span>':''}</td>
+      <td style="padding:8px 12px">
+        <div style="font-weight:500">${u.username||'—'} ${locked?'<span class="badge badge-red" style="font-size:9px">locked</span>':''}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px" id="email-${safeId}">${displayEmail||'<span style="opacity:.4">—</span>'}</div>
+      </td>
       <td style="padding:8px 12px"><span class="badge ${u.role==='admin'?'badge-amber':'badge-green'}">${u.role}</span></td>
       <td style="padding:6px 12px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -1556,7 +1560,7 @@ async function saveNewUser() {
   const {data,error}=await sb.auth.signUp({email,password,options:{data:{username,role:urole}}});
   if(error) { hideLoading(); toast(error.message,'err'); return; }
   if(data.user) {
-    await sb.from('profiles').upsert({id:data.user.id,username:username||email,role:urole});
+    await sb.from('profiles').upsert({id:data.user.id, username:username||email, role:urole, email:email});
   }
   hideLoading(); closeModal('m-add-user'); renderUsers();
   toast(`Account created: ${email}`,'ok');
