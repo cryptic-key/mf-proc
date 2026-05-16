@@ -1782,9 +1782,35 @@ function toast(msg,type='ok') {
 // ─────────────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting…');
-  // Fallback — always show login after 5 seconds no matter what
   const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email').focus(); }, 5000);
   try {
+    // Check if this is a password reset redirect
+    const hash = window.location.hash;
+    if(hash.includes('type=recovery') || hash.includes('error=access_denied')) {
+      clearTimeout(fallback);
+      hideLoading();
+      if(hash.includes('error=access_denied')||hash.includes('otp_expired')) {
+        document.getElementById('g-err').textContent = 'Reset link expired. Please request a new one.';
+      } else {
+        // Valid recovery — Supabase auto-signs them in, show change password modal
+        const {data:{session}} = await sb.auth.getSession();
+        if(session?.user) {
+          const {data:profile} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
+          currentUser = {...session.user, profile};
+          role = profile?.role||'field';
+          await boot();
+          // Clear hash from URL
+          history.replaceState(null,'',window.location.pathname);
+          // Show change password modal immediately
+          setTimeout(()=>{ openModal('m-change-pw'); toast('Please set your new password','info'); },600);
+          return;
+        }
+      }
+      history.replaceState(null,'',window.location.pathname);
+      setTimeout(()=>document.getElementById('g-email').focus(),80);
+      return;
+    }
+    // Normal session check
     const {data:{session}}=await sb.auth.getSession();
     if(session?.user) {
       const {data:profile}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
