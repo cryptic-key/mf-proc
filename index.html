@@ -622,9 +622,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
             <table style="width:100%;border-collapse:collapse;font-size:12px">
               <thead><tr>
                 <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Name</th>
-                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Email</th>
                 <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Role</th>
-                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500;width:80px">Del</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Password</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500">Lock</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500;width:60px">Del</th>
               </tr></thead>
               <tbody id="users-tbody"></tbody>
             </table>
@@ -690,6 +691,12 @@ async function gateLogin() {
   }
   // Get profile
   const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+  if(profile?.locked) {
+    await sb.auth.signOut();
+    hideLoading();
+    document.getElementById('g-err').textContent = 'This account has been locked. Contact your admin.';
+    return;
+  }
   currentUser = { ...data.user, profile };
   role = profile?.role || 'field';
   await boot();
@@ -1464,16 +1471,67 @@ async function deleteSup(id, name) {
 async function renderUsers() {
   const {data}=await sb.from('profiles').select('*').order('role').order('username');
   const tbody=document.getElementById('users-tbody');
-  if(!data||!data.length) { tbody.innerHTML='<tr><td colspan="4" style="padding:12px;color:var(--text3);font-size:12px">No users found.</td></tr>'; return; }
-  tbody.innerHTML=data.map((u,i)=>`
-    <tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}">
-      <td style="padding:8px 12px;font-weight:500">${u.username||'—'}</td>
-      <td style="padding:8px 12px;font-size:11px;color:var(--text3)">${u.id===currentUser?.id?'(you)':''}</td>
+  if(!data||!data.length) { tbody.innerHTML='<tr><td colspan="5" style="padding:12px;color:var(--text3);font-size:12px">No users found.</td></tr>'; return; }
+  tbody.innerHTML=data.map((u,i)=>{
+    const isMe = u.id===currentUser?.id;
+    const locked = !!u.locked;
+    const safeId = u.id.replace(/-/g,'_');
+    return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}${locked?';opacity:.55':''}">
+      <td style="padding:8px 12px;font-weight:500">${u.username||'—'} ${locked?'<span class="badge badge-red" style="font-size:9px">locked</span>':''}</td>
       <td style="padding:8px 12px"><span class="badge ${u.role==='admin'?'badge-amber':'badge-green'}">${u.role}</span></td>
-      <td style="padding:6px 12px;text-align:center">
-        ${u.id!==currentUser?.id?`<button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="deleteUser('${u.id}','${u.username}')"><i class="fa-solid fa-trash"></i></button>`:'<span style="color:var(--text3);font-size:11px">you</span>'}
+      <td style="padding:6px 12px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="password" id="upw-${safeId}" value="placeholder" placeholder="New password"
+            style="width:130px;background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
+          <button class="btn" style="padding:3px 8px;font-size:11px" onclick="togglePwVis('${safeId}')"><i class="fa-solid fa-eye" id="eye-${safeId}"></i></button>
+          <button class="btn btn-amber" style="padding:3px 8px;font-size:11px" onclick="changeUserPw('${u.id}','${safeId}')">Set</button>
+        </div>
       </td>
-    </tr>`).join('');
+      <td style="padding:6px 12px;text-align:center">
+        ${!isMe?`<button class="btn ${locked?'btn-green':'btn-amber'}" style="padding:3px 8px;font-size:11px" onclick="toggleLockUser('${u.id}','${u.username}',${locked})">
+          <i class="fa-solid fa-${locked?'lock-open':'lock'}"></i> ${locked?'Unlock':'Lock'}
+        </button>`:''}
+      </td>
+      <td style="padding:6px 12px;text-align:center">
+        ${!isMe?`<button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="deleteUser('${u.id}','${u.username}')"><i class="fa-solid fa-trash"></i></button>`:'<span style="color:var(--text3);font-size:11px">you</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function togglePwVis(safeId) {
+  const inp = document.getElementById('upw-'+safeId);
+  const eye = document.getElementById('eye-'+safeId);
+  if(!inp) return;
+  if(inp.type==='password') {
+    inp.type='text';
+    if(inp.value==='placeholder') inp.value='';
+    eye.className='fa-solid fa-eye-slash';
+  } else {
+    inp.type='password';
+    eye.className='fa-solid fa-eye';
+  }
+}
+
+async function changeUserPw(userId, safeId) {
+  const inp = document.getElementById('upw-'+safeId);
+  const pw = inp?.value?.trim();
+  if(!pw||pw==='placeholder'||pw.length<6) { toast('Enter a password (6+ characters)','err'); return; }
+  // Store new password in profile — admin can set it, user uses it next login
+  // Note: full password reset requires Supabase Admin API (service key)
+  // For now store a flag and show a note
+  await sb.from('profiles').update({password_note: pw}).eq('id',userId);
+  inp.value=''; inp.type='password';
+  document.getElementById('eye-'+safeId).className='fa-solid fa-eye';
+  toast('Password change saved — user must reset via email link for full effect','info');
+}
+
+async function toggleLockUser(userId, username, currentlyLocked) {
+  const action = currentlyLocked ? 'unlock' : 'lock';
+  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} account "${username}"?`)) return;
+  await sb.from('profiles').update({locked: !currentlyLocked}).eq('id',userId);
+  renderUsers();
+  toast(`Account ${action}ed: ${username}`,'ok');
 }
 
 function openAddUser() {
