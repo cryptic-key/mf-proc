@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7,57 +6,57 @@
 <title>Mayfair Electric — Procurement</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:‘Inter’,sans-serif;font-size:14px;color:#e8edf2;overflow:hidden}
+html,body{height:100%;font-family:'Inter',sans-serif;font-size:14px;color:#e8edf2;overflow:hidden}
 body{background:#0f1923}
 :root{
-–navy:#0D2137;–navy2:#1A3A5C;–navy3:#0f1923;
-–blue:#2E75B6;–blue2:#4A90D9;–blue-lt:#1a3a5c;
-–green:#27ae60;–green-dk:#1e5c2e;–green-lt:#0d2818;
-–amber:#f39c12;–amber-lt:#2d1f05;
-–red:#e74c3c;–red-lt:#2d0d0a;
-–purple:#8e44ad;–purple-lt:#1e0d2d;
-–gray:#5a6a7a;–gray2:#8899aa;–gray-lt:#1e2a35;
-–border:#1e2e3e;–border2:#263545;
-–card:#141e28;–card2:#1a2535;
-–text:#e8edf2;–text2:#8899aa;–text3:#4a5a6a;
-–r:6px;–rl:10px;–rxl:14px;
+  --navy:#0D2137;--navy2:#1A3A5C;--navy3:#0f1923;
+  --blue:#2E75B6;--blue2:#4A90D9;--blue-lt:#1a3a5c;
+  --green:#27ae60;--green-dk:#1e5c2e;--green-lt:#0d2818;
+  --amber:#f39c12;--amber-lt:#2d1f05;
+  --red:#e74c3c;--red-lt:#2d0d0a;
+  --purple:#8e44ad;--purple-lt:#1e0d2d;
+  --gray:#5a6a7a;--gray2:#8899aa;--gray-lt:#1e2a35;
+  --border:#1e2e3e;--border2:#263545;
+  --card:#141e28;--card2:#1a2535;
+  --text:#e8edf2;--text2:#8899aa;--text3:#4a5a6a;
+  --r:6px;--rl:10px;--rxl:14px;
 }
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(–border2);border-radius:3px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 
 /* LOGIN GATE */
-.gate{position:fixed;inset:0;background:var(–navy3);z-index:10000;display:flex;align-items:center;justify-content:center}
+.gate{position:fixed;inset:0;background:var(--navy3);z-index:10000;display:flex;align-items:center;justify-content:center}
 .gate.hidden{display:none}
-.gate-box{background:var(–card);border:1px solid var(–border2);border-radius:var(–rxl);padding:42px 46px;width:390px;max-width:93vw;box-shadow:0 24px 80px rgba(0,0,0,.7)}
+.gate-box{background:var(--card);border:1px solid var(--border2);border-radius:var(--rxl);padding:42px 46px;width:390px;max-width:93vw;box-shadow:0 24px 80px rgba(0,0,0,.7)}
 .gate-logo{font-size:26px;font-weight:700;color:#fff;text-align:center;margin-bottom:4px;letter-spacing:-.4px}
-.gate-logo em{color:var(–amber);font-style:normal}
-.gate-sub{text-align:center;font-size:12px;color:var(–text3);margin-bottom:34px}
-.gate-label{font-size:11px;font-weight:600;color:var(–text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
-.gate-inp{width:100%;background:var(–card2);border:1px solid var(–border2);color:var(–text);border-radius:var(–r);padding:11px 14px;font-size:14px;font-family:‘Inter’,sans-serif;outline:none;transition:all .2s;margin-bottom:14px}
-.gate-inp:focus{border-color:var(–blue2);background:#1a3050}
-.gate-inp::placeholder{color:var(–text3)}
-.gate-btn{width:100%;padding:13px;background:var(–blue);color:#fff;border:none;border-radius:var(–r);font-size:14px;font-weight:600;cursor:pointer;font-family:‘Inter’,sans-serif;transition:all .15s;margin-top:4px}
-.gate-btn:hover{background:var(–blue2)}
-.gate-err{color:var(–red);font-size:12px;text-align:center;margin-top:10px;min-height:18px}
-.gate-footer{text-align:center;font-size:11px;color:var(–text3);margin-top:28px}
+.gate-logo em{color:var(--amber);font-style:normal}
+.gate-sub{text-align:center;font-size:12px;color:var(--text3);margin-bottom:34px}
+.gate-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block}
+.gate-inp{width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:11px 14px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:all .2s;margin-bottom:14px}
+.gate-inp:focus{border-color:var(--blue2);background:#1a3050}
+.gate-inp::placeholder{color:var(--text3)}
+.gate-btn{width:100%;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;margin-top:4px}
+.gate-btn:hover{background:var(--blue2)}
+.gate-err{color:var(--red);font-size:12px;text-align:center;margin-top:10px;min-height:18px}
+.gate-footer{text-align:center;font-size:11px;color:var(--text3);margin-top:28px}
 
 /* APP */
 .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.topbar{background:var(–navy);border-bottom:1px solid var(–border);padding:0 20px;display:flex;align-items:center;gap:14px;height:54px;flex-shrink:0;z-index:50}
+.topbar{background:var(--navy);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:14px;height:54px;flex-shrink:0;z-index:50}
 .logo{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px;white-space:nowrap}
-.logo em{color:var(–amber);font-style:normal}
+.logo em{color:var(--amber);font-style:normal}
 .top-tabs{display:flex;gap:4px}
-.ttab{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.55);background:transparent;transition:all .15s;font-family:‘Inter’,sans-serif}
+.ttab{padding:6px 16px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.55);background:transparent;transition:all .15s;font-family:'Inter',sans-serif}
 .ttab:hover{border-color:rgba(255,255,255,.3);color:#fff}
-.ttab.active{background:#fff;color:var(–navy);border-color:#fff}
+.ttab.active{background:#fff;color:var(--navy);border-color:#fff}
 .topbar-right{display:flex;gap:8px;align-items:center;margin-left:auto}
 .user-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,.7)}
-.icon-btn{background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);border-radius:var(–r);padding:6px 10px;cursor:pointer;font-size:12px;font-family:‘Inter’,sans-serif;transition:all .15s}
+.icon-btn{background:none;border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);border-radius:var(--r);padding:6px 10px;cursor:pointer;font-size:12px;font-family:'Inter',sans-serif;transition:all .15s}
 .icon-btn:hover{border-color:rgba(255,255,255,.35);color:#fff}
 
 /* VIEWS */
@@ -67,126 +66,126 @@ body{background:#0f1923}
 
 /* SHARED */
 .page-body{flex:1;overflow-y:auto;padding:20px}
-.card{background:var(–card);border:1px solid var(–border);border-radius:var(–rl);padding:18px 20px;margin-bottom:14px}
-.card-title{font-size:13px;font-weight:600;color:var(–text);margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between}
-.btn{padding:8px 16px;border-radius:var(–r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(–border2);background:var(–card2);color:var(–text);transition:all .15s;font-family:‘Inter’,sans-serif;display:inline-flex;align-items:center;gap:6px}
-.btn:hover{border-color:var(–gray2)}
-.btn-green{background:var(–green-dk);color:var(–green);border-color:var(–green-dk)}
-.btn-green:hover{background:var(–green);color:#fff}
-.btn-red{background:var(–red-lt);color:var(–red);border-color:var(–red-lt)}
-.btn-red:hover{background:var(–red);color:#fff}
-.btn-amber{background:var(–amber-lt);color:var(–amber);border-color:var(–amber-lt)}
-.btn-amber:hover{background:var(–amber);color:#000}
-.btn-navy{background:var(–navy2);color:#fff;border-color:var(–navy2)}
-.btn-navy:hover{background:var(–blue);border-color:var(–blue)}
-.btn-purple{background:var(–purple-lt);color:#c39bd3;border-color:var(–purple-lt)}
-.btn-purple:hover{background:var(–purple);color:#fff}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.btn{padding:8px 16px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--card2);color:var(--text);transition:all .15s;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--gray2)}
+.btn-green{background:var(--green-dk);color:var(--green);border-color:var(--green-dk)}
+.btn-green:hover{background:var(--green);color:#fff}
+.btn-red{background:var(--red-lt);color:var(--red);border-color:var(--red-lt)}
+.btn-red:hover{background:var(--red);color:#fff}
+.btn-amber{background:var(--amber-lt);color:var(--amber);border-color:var(--amber-lt)}
+.btn-amber:hover{background:var(--amber);color:#000}
+.btn-navy{background:var(--navy2);color:#fff;border-color:var(--navy2)}
+.btn-navy:hover{background:var(--blue);border-color:var(--blue)}
+.btn-purple{background:var(--purple-lt);color:#c39bd3;border-color:var(--purple-lt)}
+.btn-purple:hover{background:var(--purple);color:#fff}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
-.badge-amber{background:var(–amber-lt);color:var(–amber)}
-.badge-green{background:var(–green-lt);color:var(–green)}
-.badge-blue{background:var(–blue-lt);color:var(–blue2)}
-.badge-gray{background:var(–gray-lt);color:var(–gray2)}
+.badge-amber{background:var(--amber-lt);color:var(--amber)}
+.badge-green{background:var(--green-lt);color:var(--green)}
+.badge-blue{background:var(--blue-lt);color:var(--blue2)}
+.badge-gray{background:var(--gray-lt);color:var(--gray2)}
 .form-group{display:flex;flex-direction:column;gap:5px}
-.form-label{font-size:11px;font-weight:600;color:var(–text2);text-transform:uppercase;letter-spacing:.4px}
-.form-inp{background:var(–card2);border:1px solid var(–border2);color:var(–text);border-radius:var(–r);padding:9px 12px;font-size:13px;font-family:‘Inter’,sans-serif;outline:none;transition:border-color .15s}
-.form-inp:focus{border-color:var(–blue2)}
-.form-inp::placeholder{color:var(–text3)}
-.form-select{background:var(–card2);border:1px solid var(–border2);color:var(–text);border-radius:var(–r);padding:9px 12px;font-size:13px;font-family:‘Inter’,sans-serif;outline:none;cursor:pointer}
-.form-select:focus{border-color:var(–blue2)}
-.mono{font-family:‘IBM Plex Mono’,monospace}
-.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;background:var(–gray-lt);color:var(–gray2)}
-code{background:var(–card2);color:var(–blue2);padding:2px 6px;border-radius:4px;font-family:‘IBM Plex Mono’,monospace;font-size:11px}
-.empty-state{text-align:center;padding:56px 20px;color:var(–text3)}
+.form-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
+.form-inp{background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+.form-inp:focus{border-color:var(--blue2)}
+.form-inp::placeholder{color:var(--text3)}
+.form-select{background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;cursor:pointer}
+.form-select:focus{border-color:var(--blue2)}
+.mono{font-family:'IBM Plex Mono',monospace}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;background:var(--gray-lt);color:var(--gray2)}
+code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px}
+.empty-state{text-align:center;padding:56px 20px;color:var(--text3)}
 .empty-state i{font-size:38px;margin-bottom:14px;display:block;opacity:.35}
 .empty-state p{font-size:13px;line-height:1.6}
 
 /* FIELD REQUEST VIEW */
 .field-layout{display:flex;flex:1;overflow:hidden}
-.field-sidebar{width:188px;background:var(–card);border-right:1px solid var(–border);overflow-y:auto;flex-shrink:0;padding:8px 0}
-.fsec-label{padding:8px 14px 4px;font-size:10px;font-weight:600;color:var(–text3);text-transform:uppercase;letter-spacing:.7px}
-.fsec-item{padding:8px 14px;font-size:11px;color:var(–text2);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s;border-left:2px solid transparent}
-.fsec-item:hover{background:var(–card2);color:var(–text)}
-.fsec-item.active{background:var(–blue-lt);color:var(–blue2);border-left-color:var(–blue2);font-weight:500}
-.fsec-badge{margin-left:auto;background:var(–green);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;display:none}
+.field-sidebar{width:188px;background:var(--card);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;padding:8px 0}
+.fsec-label{padding:8px 14px 4px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.7px}
+.fsec-item{padding:8px 14px;font-size:11px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s;border-left:2px solid transparent}
+.fsec-item:hover{background:var(--card2);color:var(--text)}
+.fsec-item.active{background:var(--blue-lt);color:var(--blue2);border-left-color:var(--blue2);font-weight:500}
+.fsec-badge{margin-left:auto;background:var(--green);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;display:none}
 .fsec-badge.show{display:inline}
 .mat-panel{flex:1;overflow-y:auto;display:flex;flex-direction:column}
-.col-hdr{background:var(–card);border-bottom:1px solid var(–border);display:grid;grid-template-columns:1fr 90px;position:sticky;top:0;z-index:5;flex-shrink:0}
-.col-hdr span{font-size:10px;font-weight:600;color:var(–text3);text-transform:uppercase;letter-spacing:.5px;padding:7px 16px}
+.col-hdr{background:var(--card);border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 90px;position:sticky;top:0;z-index:5;flex-shrink:0}
+.col-hdr span{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:7px 16px}
 .col-hdr span:last-child{text-align:center}
-.sec-hdr{background:var(–navy2);color:rgba(255,255,255,.8);padding:7px 16px;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;position:sticky;top:30px;z-index:4;border-bottom:1px solid var(–border)}
-.mat-row{display:grid;grid-template-columns:1fr 90px;border-bottom:1px solid var(–border);align-items:center;min-height:38px;transition:background .1s}
-.mat-row:hover{background:var(–card2)}
+.sec-hdr{background:var(--navy2);color:rgba(255,255,255,.8);padding:7px 16px;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;position:sticky;top:30px;z-index:4;border-bottom:1px solid var(--border)}
+.mat-row{display:grid;grid-template-columns:1fr 90px;border-bottom:1px solid var(--border);align-items:center;min-height:38px;transition:background .1s}
+.mat-row:hover{background:var(--card2)}
 .mat-row.has-qty{background:#0d1e00}
 .mat-row.has-qty:hover{background:#112400}
 @keyframes flash-row{0%,60%{background:#1a3a5c}100%{background:#0d1e00}}
 .mat-row.flash{animation:flash-row 1.2s ease forwards}
-.mat-desc{padding:5px 16px;font-size:12px;color:var(–text);line-height:1.35}
+.mat-desc{padding:5px 16px;font-size:12px;color:var(--text);line-height:1.35}
 .mat-qty-wrap{padding:3px 8px;display:flex;justify-content:center}
-.qty-inp{width:70px;text-align:center;font-size:13px;font-weight:600;padding:5px 6px;border:1px solid var(–border2);border-radius:var(–r);background:var(–card2);color:var(–text);font-family:‘Inter’,sans-serif}
-.qty-inp:focus{border-color:var(–green);outline:none;background:#0d1e00}
-.field-footer{border-top:1px solid var(–border);padding:14px 20px;background:var(–card);flex-shrink:0}
+.qty-inp{width:70px;text-align:center;font-size:13px;font-weight:600;padding:5px 6px;border:1px solid var(--border2);border-radius:var(--r);background:var(--card2);color:var(--text);font-family:'Inter',sans-serif}
+.qty-inp:focus{border-color:var(--green);outline:none;background:#0d1e00}
+.field-footer{border-top:1px solid var(--border);padding:14px 20px;background:var(--card);flex-shrink:0}
 .field-meta-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end}
 .stat-strip{display:flex;gap:24px;margin-bottom:12px}
 .stat{display:flex;flex-direction:column;align-items:center}
-.stat-val{font-size:22px;font-weight:700;color:var(–text)}
-.stat-lbl{font-size:10px;color:var(–text3);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+.stat-val{font-size:22px;font-weight:700;color:var(--text)}
+.stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
 
 /* SEARCH */
 .search-wrap{position:relative;flex:1;max-width:360px}
-.search-inp{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:8px 34px 8px 34px;font-size:13px;font-family:‘Inter’,sans-serif;outline:none;transition:all .2s}
+.search-inp{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:8px 34px 8px 34px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:all .2s}
 .search-inp::placeholder{color:rgba(255,255,255,.3)}
-.search-inp:focus{background:rgba(255,255,255,.1);border-color:var(–blue2)}
+.search-inp:focus{background:rgba(255,255,255,.1);border-color:var(--blue2)}
 .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.35);font-size:13px;pointer-events:none}
 .sclear{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-size:13px;display:none;padding:2px}
 .sclear:hover{color:#fff}
-.sdrop{position:absolute;top:calc(100%+6px);left:0;right:0;background:#1a2535;border:1px solid var(–border2);border-radius:var(–rl);z-index:200;max-height:300px;overflow-y:auto;display:none;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.sdrop{position:absolute;top:calc(100%+6px);left:0;right:0;background:#1a2535;border:1px solid var(--border2);border-radius:var(--rl);z-index:200;max-height:300px;overflow-y:auto;display:none;box-shadow:0 12px 40px rgba(0,0,0,.6)}
 .sdrop.open{display:block}
 .sresult{padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);transition:background .1s}
 .sresult:hover,.sresult.focused{background:rgba(46,117,182,.2)}
 .sresult-name{font-size:12px;color:#dde;margin-bottom:2px}
-.sresult-name mark{background:none;color:var(–amber);font-weight:600}
-.sresult-meta{font-size:11px;color:var(–text3)}
-.sresult-qty{background:var(–green-dk);color:var(–green);border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:6px}
-.snone{padding:14px;text-align:center;color:var(–text3);font-size:12px}
+.sresult-name mark{background:none;color:var(--amber);font-weight:600}
+.sresult-meta{font-size:11px;color:var(--text3)}
+.sresult-qty{background:var(--green-dk);color:var(--green);border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:6px}
+.snone{padding:14px;text-align:center;color:var(--text3);font-size:12px}
 
 /* ADMIN REQUESTS */
 .req-layout{display:flex;flex:1;overflow:hidden}
-.req-list-panel{width:300px;border-right:1px solid var(–border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
-.req-list-hdr{padding:12px 16px;border-bottom:1px solid var(–border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.req-list-hdr span{font-size:11px;font-weight:600;color:var(–text2);text-transform:uppercase;letter-spacing:.5px}
-.req-item{padding:12px 16px;border-bottom:1px solid var(–border);cursor:pointer;transition:background .1s}
-.req-item:hover{background:var(–card2)}
-.req-item.active{background:var(–blue-lt);border-left:3px solid var(–blue2)}
-.req-item-project{font-size:13px;font-weight:600;color:var(–text);margin-bottom:4px}
-.req-item-meta{font-size:11px;color:var(–text3);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.req-list-panel{width:300px;border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
+.req-list-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.req-list-hdr span{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.req-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.req-item:hover{background:var(--card2)}
+.req-item.active{background:var(--blue-lt);border-left:3px solid var(--blue2)}
+.req-item-project{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.req-item-meta{font-size:11px;color:var(--text3);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .req-detail-panel{flex:1;overflow-y:auto;padding:24px}
 
 /* REQUEST DETAIL */
-.detail-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(–border)}
-.detail-title{font-size:20px;font-weight:700;color:var(–text)}
-.detail-meta{font-size:12px;color:var(–text3);margin-top:6px;line-height:1.8}
+.detail-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)}
+.detail-title{font-size:20px;font-weight:700;color:var(--text)}
+.detail-meta{font-size:12px;color:var(--text3);margin-top:6px;line-height:1.8}
 .detail-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
-.totals-bar{background:var(–navy2);border-radius:var(–r);padding:12px 18px;display:flex;gap:28px;margin-bottom:18px;flex-wrap:wrap}
+.totals-bar{background:var(--navy2);border-radius:var(--r);padding:12px 18px;display:flex;gap:28px;margin-bottom:18px;flex-wrap:wrap}
 .tot-item{display:flex;flex-direction:column}
-.tot-val{font-size:17px;font-weight:700;color:var(–text);font-family:‘IBM Plex Mono’,monospace}
+.tot-val{font-size:17px;font-weight:700;color:var(--text);font-family:'IBM Plex Mono',monospace}
 .tot-lbl{font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
 .edit-table{width:100%;border-collapse:collapse;font-size:12px}
-.edit-table th{background:var(–navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-weight:500;font-size:11px}
-.edit-table td{padding:7px 12px;border-bottom:1px solid var(–border);vertical-align:middle}
+.edit-table th{background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-weight:500;font-size:11px}
+.edit-table td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
 .edit-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
-.edit-qty{width:64px;text-align:center;font-size:12px;font-weight:600;padding:4px 6px;border:1px solid var(–border2);border-radius:4px;background:var(–card2);color:var(–text);font-family:‘Inter’,sans-serif}
-.edit-qty:focus{border-color:var(–blue2);outline:none}
-.sup-sel{font-size:11px;padding:4px 8px;border:1px solid var(–border2);border-radius:4px;background:var(–card2);color:var(–text);font-family:‘Inter’,sans-serif;cursor:pointer;max-width:180px}
-.sup-sel:focus{outline:none;border-color:var(–blue2)}
+.edit-qty{width:64px;text-align:center;font-size:12px;font-weight:600;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;background:var(--card2);color:var(--text);font-family:'Inter',sans-serif}
+.edit-qty:focus{border-color:var(--blue2);outline:none}
+.sup-sel{font-size:11px;padding:4px 8px;border:1px solid var(--border2);border-radius:4px;background:var(--card2);color:var(--text);font-family:'Inter',sans-serif;cursor:pointer;max-width:180px}
+.sup-sel:focus{outline:none;border-color:var(--blue2)}
 
 /* PO SECTION */
 .po-sup-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.po-stab{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(–border2);background:var(–card2);color:var(–text2);transition:all .15s}
-.po-stab.has{border-color:var(–green-dk);color:var(–green)}
-.po-stab.active{background:var(–green-dk);border-color:var(–green);color:#fff}
+.po-stab{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--card2);color:var(--text2);transition:all .15s}
+.po-stab.has{border-color:var(--green-dk);color:var(--green)}
+.po-stab.active{background:var(--green-dk);border-color:var(--green);color:#fff}
 
 /* PO DOCUMENT — white for printing */
-.po-doc{background:#fff;color:#111;border-radius:var(–rl);padding:28px 32px;font-family:‘Inter’,sans-serif}
+.po-doc{background:#fff;color:#111;border-radius:var(--rl);padding:28px 32px;font-family:'Inter',sans-serif}
 .po-co{font-size:20px;font-weight:700;color:#0D2137}
 .po-co span{color:#c07800}
 .po-doc-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:0.5px solid #c0c8d0;margin-bottom:18px}
@@ -201,32 +200,32 @@ code{background:var(–card2);color:var(–blue2);padding:2px 6px;border-radius:
 .po-tots{width:220px;font-size:12px}
 .po-tot-row{display:flex;justify-content:space-between;padding:4px 0;color:#555;border-bottom:1px solid #eee}
 .po-tot-grand{display:flex;justify-content:space-between;padding-top:10px;font-size:15px;font-weight:700;color:#0D2137}
-.po-actions{display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(–border)}
+.po-actions{display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
 
 /* ADMIN PANEL */
 .admin-tabs{display:flex;gap:6px;margin-bottom:18px}
-.admin-tab{padding:8px 18px;border-radius:var(–r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(–border2);background:var(–card2);color:var(–text2);transition:all .15s;font-family:‘Inter’,sans-serif}
-.admin-tab.active{background:var(–blue);color:#fff;border-color:var(–blue2)}
+.admin-tab{padding:8px 18px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--card2);color:var(--text2);transition:all .15s;font-family:'Inter',sans-serif}
+.admin-tab.active{background:var(--blue);color:#fff;border-color:var(--blue2)}
 .asec{display:none}
 .asec.active{display:block}
 .prod-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.prod-tbl th{background:var(–navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500}
-.prod-tbl td{padding:6px 12px;border-bottom:1px solid var(–border);vertical-align:middle}
-.prod-tbl tr:hover td{background:var(–card2)}
-.ep-inp{width:78px;text-align:right;font-size:11px;padding:3px 6px;border:1px solid var(–border2);border-radius:4px;background:var(–card2);color:var(–text);font-family:‘IBM Plex Mono’,monospace}
-.ep-inp:focus{border-color:var(–blue2);outline:none}
+.prod-tbl th{background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500}
+.prod-tbl td{padding:6px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.prod-tbl tr:hover td{background:var(--card2)}
+.ep-inp{width:78px;text-align:right;font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;background:var(--card2);color:var(--text);font-family:'IBM Plex Mono',monospace}
+.ep-inp:focus{border-color:var(--blue2);outline:none}
 .sup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
-.sup-card{background:var(–card2);border:1px solid var(–border);border-radius:var(–rl);padding:14px;display:flex;align-items:center;justify-content:space-between}
-.settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(–border)}
+.sup-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--rl);padding:14px;display:flex;align-items:center;justify-content:space-between}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
 .settings-row:last-child{border-bottom:none}
 
 /* MODALS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:none;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex}
-.modal{background:var(–card);border:1px solid var(–border2);border-radius:var(–rxl);padding:28px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--rxl);padding:28px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .modal-lg{width:640px}
-.modal-title{font-size:15px;font-weight:600;color:var(–text);margin-bottom:5px}
-.modal-sub{font-size:12px;color:var(–text2);margin-bottom:20px}
+.modal-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:5px}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:20px}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .fg3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px}
@@ -234,59 +233,56 @@ code{background:var(–card2);color:var(–blue2);padding:2px 6px;border-radius:
 
 /* PRICE NOTE TOOLTIP */
 .price-cell-wrap{position:relative;display:inline-flex;align-items:center;gap:3px}
-.note-btn{width:14px;height:14px;border-radius:50%;border:1px solid var(–border2);background:var(–card2);color:var(–text3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;transition:all .15s;position:relative}
-.note-btn:hover{border-color:var(–blue2);color:var(–blue2)}
-.note-btn.has-note{border-color:var(–amber);color:var(–amber);background:var(–amber-lt)}
-.note-btn.has-note:hover{background:var(–amber);color:#000}
-.note-tooltip{position:absolute;top:calc(100% + 6px);right:0;background:var(–navy2);color:#fff;font-size:11px;border-radius:6px;padding:6px 10px;white-space:nowrap;max-width:220px;white-space:normal;line-height:1.4;z-index:100;pointer-events:none;opacity:0;transform:translateY(-4px);transition:all .15s;border:1px solid var(–border2);box-shadow:0 4px 16px rgba(0,0,0,.5)}
+.note-btn{width:14px;height:14px;border-radius:50%;border:1px solid var(--border2);background:var(--card2);color:var(--text3);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1;transition:all .15s;position:relative}
+.note-btn:hover{border-color:var(--blue2);color:var(--blue2)}
+.note-btn.has-note{border-color:var(--amber);color:var(--amber);background:var(--amber-lt)}
+.note-btn.has-note:hover{background:var(--amber);color:#000}
+.note-tooltip{position:absolute;top:calc(100% + 6px);right:0;background:var(--navy2);color:#fff;font-size:11px;border-radius:6px;padding:6px 10px;white-space:nowrap;max-width:220px;white-space:normal;line-height:1.4;z-index:100;pointer-events:none;opacity:0;transform:translateY(-4px);transition:all .15s;border:1px solid var(--border2);box-shadow:0 4px 16px rgba(0,0,0,.5)}
 .note-btn:hover .note-tooltip,.note-btn:focus .note-tooltip{opacity:1;transform:translateY(0)}
 /* note input popup */
-.note-popup{position:absolute;top:calc(100% + 6px);right:0;background:var(–card);border:1px solid var(–border2);border-radius:var(–rl);padding:10px;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.6);display:none;width:220px}
+.note-popup{position:absolute;top:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--border2);border-radius:var(--rl);padding:10px;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.6);display:none;width:220px}
 .note-popup.open{display:block}
-.note-popup textarea{width:100%;background:var(–card2);border:1px solid var(–border2);color:var(–text);border-radius:var(–r);padding:6px 8px;font-size:12px;font-family:‘Inter’,sans-serif;resize:none;outline:none;margin-bottom:6px}
-.note-popup textarea:focus{border-color:var(–blue2)}
+.note-popup textarea{width:100%;background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:6px 8px;font-size:12px;font-family:'Inter',sans-serif;resize:none;outline:none;margin-bottom:6px}
+.note-popup textarea:focus{border-color:var(--blue2)}
 .note-popup-actions{display:flex;gap:6px;justify-content:flex-end}
 
 /* TOAST */
-.toast{position:fixed;bottom:22px;right:22px;padding:10px 18px;border-radius:var(–r);font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;border:1px solid}
+.toast{position:fixed;bottom:22px;right:22px;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;border:1px solid}
 .toast.show{opacity:1;transform:translateY(0)}
-.t-ok{background:var(–green-lt);border-color:var(–green);color:var(–green)}
-.t-err{background:var(–red-lt);border-color:var(–red);color:var(–red)}
-.t-info{background:var(–blue-lt);border-color:var(–blue2);color:var(–blue2)}
+.t-ok{background:var(--green-lt);border-color:var(--green);color:var(--green)}
+.t-err{background:var(--red-lt);border-color:var(--red);color:var(--red)}
+.t-info{background:var(--blue-lt);border-color:var(--blue2);color:var(--blue2)}
 
 /* PRINT */
 @media print{
-.topbar,.field-sidebar,.req-list-panel,.po-sup-tabs,.detail-hdr,.detail-actions,
-.po-actions,.admin-tabs,.field-footer,.req-list-hdr,.totals-bar,.card-title button,
-.edit-table,.btn,.card:not(:has(.po-doc)){display:none!important}
-.app,.main,.view.active,.req-detail-panel,.po-doc{overflow:visible!important;height:auto!important}
-body{background:#fff;overflow:auto}
-.po-doc{box-shadow:none;padding:0;border-radius:0}
-.card{border:none!important;padding:0!important;background:transparent!important}
-.card-title{display:none!important}
-#po-number-inp{border-bottom:0.5px solid #ccc !important;color:#c0392b !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .topbar,.field-sidebar,.req-list-panel,.po-sup-tabs,.detail-hdr,.detail-actions,
+  .po-actions,.admin-tabs,.field-footer,.req-list-hdr,.totals-bar,.card-title button,
+  .edit-table,.btn,.card:not(:has(.po-doc)){display:none!important}
+  .app,.main,.view.active,.req-detail-panel,.po-doc{overflow:visible!important;height:auto!important}
+  body{background:#fff;overflow:auto}
+  .po-doc{box-shadow:none;padding:0;border-radius:0}
+  .card{border:none!important;padding:0!important;background:transparent!important}
+  .card-title{display:none!important}
+  #po-number-inp{border-bottom:0.5px solid #ccc !important;color:#c0392b !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
 /* Loading overlay */
-.loading-overlay{position:fixed;inset:0;background:var(–navy3);z-index:20000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.loading-overlay{position:fixed;inset:0;background:var(--navy3);z-index:20000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
 .loading-overlay.hidden{display:none}
-.spinner{width:36px;height:36px;border:3px solid var(–border2);border-top-color:var(–blue2);border-radius:50%;animation:spin .7s linear infinite}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--blue2);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-msg{font-size:13px;color:var(–text3)}
+.loading-msg{font-size:13px;color:var(--text3)}
 </style>
-
 </head>
 <body>
 
 <!-- LOADING OVERLAY -->
-
 <div class="loading-overlay" id="loading-overlay">
   <div class="spinner"></div>
   <div class="loading-msg" id="loading-msg">Connecting…</div>
 </div>
 
 <!-- LOGIN GATE -->
-
 <div class="gate" id="gate">
   <div class="gate-box">
     <div style="display:flex;justify-content:center;margin-bottom:4px">
@@ -307,7 +303,6 @@ body{background:#fff;overflow:auto}
 </div>
 
 <!-- MODALS -->
-
 <div class="overlay" id="m-submit">
   <div class="modal">
     <div class="modal-title"><i class="fa-solid fa-paper-plane" style="color:var(--green);margin-right:8px"></i>Submit Material Request</div>
@@ -413,7 +408,6 @@ body{background:#fff;overflow:auto}
 </div>
 
 <!-- PO NUMBER PROMPT -->
-
 <div class="overlay" id="m-po-number">
   <div class="modal">
     <div class="modal-title"><i class="fa-solid fa-hashtag" style="color:var(--red);margin-right:8px"></i>Enter PO Number</div>
@@ -431,11 +425,9 @@ body{background:#fff;overflow:auto}
 </div>
 
 <!-- TOAST -->
-
 <div class="toast" id="toast"></div>
 
 <!-- APP -->
-
 <div class="app" id="app" style="display:none">
   <div class="topbar">
     <div id="topbar-logo" style="display:flex;align-items:center;flex-shrink:0;min-width:100px">
@@ -505,158 +497,156 @@ body{background:#fff;overflow:auto}
       </div>
     </div>
 
-```
-<!-- ADMIN REQUESTS -->
-<div class="view" id="view-requests">
-  <div class="req-layout">
-    <div class="req-list-panel">
-      <div class="req-list-hdr">
-        <span>Requests</span>
-        <select class="form-select" id="req-filter" onchange="renderReqList()" style="font-size:11px;padding:4px 8px;width:auto">
-          <option value="">All</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="completed">Completed</option>
-        </select>
-      </div>
-      <div id="req-list-items"></div>
-    </div>
-    <div class="req-detail-panel" id="req-detail">
-      <div class="empty-state"><i class="fa-solid fa-inbox"></i><p>Select a request from the list.</p></div>
-    </div>
-  </div>
-</div>
-
-<!-- ADMIN PANEL -->
-<div class="view" id="view-panel">
-  <div class="page-body">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-      <div>
-        <div style="font-size:16px;font-weight:600;color:var(--text)">Admin Panel</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">Manage products, pricing, suppliers and credentials</div>
-      </div>
-    </div>
-    <div class="admin-tabs">
-      <button class="admin-tab active" onclick="switchAdminTab('products')"><i class="fa-solid fa-box"></i> Products</button>
-      <button class="admin-tab" onclick="switchAdminTab('suppliers')"><i class="fa-solid fa-truck"></i> Suppliers</button>
-      <button class="admin-tab" onclick="switchAdminTab('settings')"><i class="fa-solid fa-sliders"></i> Settings</button>
-    </div>
-
-    <div class="asec active" id="asec-products">
-      <div class="card">
-        <div class="card-title">
-          <span>Products <span id="prod-count" class="tag"></span></span>
-          <div style="display:flex;gap:8px;align-items:center">
-            <div style="position:relative">
-              <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none"></i>
-              <input class="form-inp" id="prod-search" placeholder="Search products…" style="padding-left:28px;width:180px;font-size:12px" oninput="renderProducts()">
-            </div>
-            <select class="form-select" id="filter-asec" onchange="renderProducts()" style="font-size:12px;padding:6px 10px">
-              <option value="">All sections</option>
+    <!-- ADMIN REQUESTS -->
+    <div class="view" id="view-requests">
+      <div class="req-layout">
+        <div class="req-list-panel">
+          <div class="req-list-hdr">
+            <span>Requests</span>
+            <select class="form-select" id="req-filter" onchange="renderReqList()" style="font-size:11px;padding:4px 8px;width:auto">
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="completed">Completed</option>
             </select>
-            <button class="btn btn-green" onclick="openAddProduct()"><i class="fa-solid fa-plus"></i> Add Product</button>
           </div>
+          <div id="req-list-items"></div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="prod-tbl" id="prod-tbl">
-            <thead id="prod-thead"></thead>
-            <tbody id="prod-tbody"></tbody>
-          </table>
+        <div class="req-detail-panel" id="req-detail">
+          <div class="empty-state"><i class="fa-solid fa-inbox"></i><p>Select a request from the list.</p></div>
         </div>
       </div>
     </div>
 
-    <div class="asec" id="asec-suppliers">
-      <div class="card">
-        <div class="card-title">
-          Suppliers
-          <button class="btn btn-green" onclick="openModal('m-add-supplier')"><i class="fa-solid fa-plus"></i> Add Supplier</button>
-        </div>
-        <div class="sup-grid" id="sup-grid"></div>
-      </div>
-    </div>
-
-    <div class="asec" id="asec-settings">
-      <div class="card">
-        <div class="card-title">Company Branding</div>
-        <div class="settings-row">
+    <!-- ADMIN PANEL -->
+    <div class="view" id="view-panel">
+      <div class="page-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
           <div>
-            <div style="font-size:13px;font-weight:500;color:var(--text)">Logo Image</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">JPG, PNG or SVG — max 2MB</div>
+            <div style="font-size:16px;font-weight:600;color:var(--text)">Admin Panel</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Manage products, pricing, suppliers and credentials</div>
           </div>
-          <div style="display:flex;gap:10px;align-items:center">
-            <div id="logo-preview-wrap" style="width:120px;height:40px;background:rgba(255,255,255,.06);border:1px dashed var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
-              <span id="logo-preview-placeholder" style="font-size:10px;color:var(--text3)">No logo</span>
-              <img id="logo-preview-img" src="" alt="logo" style="max-height:36px;max-width:116px;object-fit:contain;display:none">
+        </div>
+        <div class="admin-tabs">
+          <button class="admin-tab active" onclick="switchAdminTab('products')"><i class="fa-solid fa-box"></i> Products</button>
+          <button class="admin-tab" onclick="switchAdminTab('suppliers')"><i class="fa-solid fa-truck"></i> Suppliers</button>
+          <button class="admin-tab" onclick="switchAdminTab('settings')"><i class="fa-solid fa-sliders"></i> Settings</button>
+        </div>
+
+        <div class="asec active" id="asec-products">
+          <div class="card">
+            <div class="card-title">
+              <span>Products <span id="prod-count" class="tag"></span></span>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div style="position:relative">
+                  <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none"></i>
+                  <input class="form-inp" id="prod-search" placeholder="Search products…" style="padding-left:28px;width:180px;font-size:12px" oninput="renderProducts()">
+                </div>
+                <select class="form-select" id="filter-asec" onchange="renderProducts()" style="font-size:12px;padding:6px 10px">
+                  <option value="">All sections</option>
+                </select>
+                <button class="btn btn-green" onclick="openAddProduct()"><i class="fa-solid fa-plus"></i> Add Product</button>
+              </div>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              <button class="btn btn-green" style="font-size:12px" onclick="document.getElementById('logo-file-inp').click()"><i class="fa-solid fa-upload"></i> Upload logo</button>
-              <button class="btn btn-red" style="font-size:11px;padding:4px 10px" onclick="removeLogo()"><i class="fa-solid fa-xmark"></i> Remove</button>
+            <div style="overflow-x:auto">
+              <table class="prod-tbl" id="prod-tbl">
+                <thead id="prod-thead"></thead>
+                <tbody id="prod-tbody"></tbody>
+              </table>
             </div>
-            <input type="file" id="logo-file-inp" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">
           </div>
         </div>
-        <div class="settings-row">
-          <div>
-            <div style="font-size:13px;font-weight:500;color:var(--text)">Company Name <span style="font-size:11px;color:var(--text3);font-weight:400">(shown when no logo)</span></div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-inp" id="brand-name1" placeholder="Mayfair" style="width:110px">
-            <input class="form-inp" id="brand-name2" placeholder="Electric" style="width:110px">
-            <button class="btn btn-amber" onclick="saveTextBranding()">Apply</button>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">Tax Settings</div>
-        <div class="settings-row">
-          <div>
-            <div style="font-size:13px;font-weight:500;color:var(--text)">HST Rate</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-inp" type="number" id="hst-inp" value="13" style="width:75px">
-            <span style="color:var(--text2)">%</span>
-            <button class="btn btn-amber" onclick="saveHST()">Save</button>
+
+        <div class="asec" id="asec-suppliers">
+          <div class="card">
+            <div class="card-title">
+              Suppliers
+              <button class="btn btn-green" onclick="openModal('m-add-supplier')"><i class="fa-solid fa-plus"></i> Add Supplier</button>
+            </div>
+            <div class="sup-grid" id="sup-grid"></div>
           </div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-title">User Accounts
-          <button class="btn btn-green" onclick="openAddUser()"><i class="fa-solid fa-user-plus"></i> Add User</button>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">
-          <i class="fa-solid fa-circle-info" style="margin-right:4px"></i>
-          Admin accounts have full access. Field accounts see only the material request form.
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead><tr>
-            <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Name</th>
-            <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Email</th>
-            <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Role</th>
-            <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500;width:80px">Del</th>
-          </tr></thead>
-          <tbody id="users-tbody"></tbody>
-        </table>
-      </div>
-      <div class="card">
-        <div class="card-title">Data Management</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-navy" onclick="exportData()"><i class="fa-solid fa-download"></i> Export backup</button>
-          <button class="btn btn-red" onclick="resetAll()"><i class="fa-solid fa-triangle-exclamation"></i> Reset to defaults</button>
+
+        <div class="asec" id="asec-settings">
+          <div class="card">
+            <div class="card-title">Company Branding</div>
+            <div class="settings-row">
+              <div>
+                <div style="font-size:13px;font-weight:500;color:var(--text)">Logo Image</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px">JPG, PNG or SVG — max 2MB</div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <div id="logo-preview-wrap" style="width:120px;height:40px;background:rgba(255,255,255,.06);border:1px dashed var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                  <span id="logo-preview-placeholder" style="font-size:10px;color:var(--text3)">No logo</span>
+                  <img id="logo-preview-img" src="" alt="logo" style="max-height:36px;max-width:116px;object-fit:contain;display:none">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <button class="btn btn-green" style="font-size:12px" onclick="document.getElementById('logo-file-inp').click()"><i class="fa-solid fa-upload"></i> Upload logo</button>
+                  <button class="btn btn-red" style="font-size:11px;padding:4px 10px" onclick="removeLogo()"><i class="fa-solid fa-xmark"></i> Remove</button>
+                </div>
+                <input type="file" id="logo-file-inp" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">
+              </div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div style="font-size:13px;font-weight:500;color:var(--text)">Company Name <span style="font-size:11px;color:var(--text3);font-weight:400">(shown when no logo)</span></div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="form-inp" id="brand-name1" placeholder="Mayfair" style="width:110px">
+                <input class="form-inp" id="brand-name2" placeholder="Electric" style="width:110px">
+                <button class="btn btn-amber" onclick="saveTextBranding()">Apply</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Tax Settings</div>
+            <div class="settings-row">
+              <div>
+                <div style="font-size:13px;font-weight:500;color:var(--text)">HST Rate</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="form-inp" type="number" id="hst-inp" value="13" style="width:75px">
+                <span style="color:var(--text2)">%</span>
+                <button class="btn btn-amber" onclick="saveHST()">Save</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">User Accounts
+              <button class="btn btn-green" onclick="openAddUser()"><i class="fa-solid fa-user-plus"></i> Add User</button>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:12px">
+              <i class="fa-solid fa-circle-info" style="margin-right:4px"></i>
+              Admin accounts have full access. Field accounts see only the material request form.
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Name</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Email</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Role</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500;width:80px">Del</th>
+              </tr></thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-title">Data Management</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-navy" onclick="exportData()"><i class="fa-solid fa-download"></i> Export backup</button>
+              <button class="btn btn-red" onclick="resetAll()"><i class="fa-solid fa-triangle-exclamation"></i> Reset to defaults</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
-```
-
   </div>
 </div>
 
 <script>
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const _sc = (window.supabase || window.Supabase);
+const sb = _sc.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
@@ -1320,340 +1310,360 @@ function renderProducts() {
           </button>
           <div class="note-popup" id="npop-${safeId}">
             <textarea rows="2" placeholder="e.g. price valid until June…" id="ntxt-${safeId}">${note}</textarea>
-
-```
-        <div class="note-popup-actions">
-          <button class="btn" style="padding:3px 8px;font-size:11px" data-sid="${safeId}" onclick="closeNotePopupBtn(this)">Cancel</button>
-          <button class="btn btn-green" style="padding:3px 8px;font-size:11px" data-prod="${prod.id}" data-sup="${sup.id}" data-sid="${safeId}" onclick="saveNoteBtn(this)">Save</button>
+            <div class="note-popup-actions">
+              <button class="btn" style="padding:3px 8px;font-size:11px" data-sid="${safeId}" onclick="closeNotePopupBtn(this)">Cancel</button>
+              <button class="btn btn-green" style="padding:3px 8px;font-size:11px" data-prod="${prod.id}" data-sup="${sup.id}" data-sid="${safeId}" onclick="saveNoteBtn(this)">Save</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </td>`;
-}).join('');
-return `<tr>
-  <td style="font-size:12px">${prod.description}</td>
-  <td><span class="tag" style="font-size:10px">${getSectionName(prod.section_id)}</span></td>
-  <td style="text-align:center;padding:3px 6px">
-    <input class="ep-inp" type="text" value="${prod.unit_label||''}" placeholder="ea"
-      style="width:60px;text-align:center;font-family:'Inter',sans-serif;font-size:11px"
-      data-prod="${prod.id}" onchange="updateUnitBtn(this)" title="e.g. ea, 100, ft, reel">
-  </td>
-  ${supCells}
-  <td style="text-align:center">
-    <button class="btn btn-red" style="padding:3px 7px;font-size:11px" onclick="deleteProd('${prod.id}')"><i class="fa-solid fa-trash"></i></button>
-  </td>
-</tr>`;
-```
-
-}).join(’’);
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="font-size:12px">${prod.description}</td>
+      <td><span class="tag" style="font-size:10px">${getSectionName(prod.section_id)}</span></td>
+      <td style="text-align:center;padding:3px 6px">
+        <input class="ep-inp" type="text" value="${prod.unit_label||''}" placeholder="ea"
+          style="width:60px;text-align:center;font-family:'Inter',sans-serif;font-size:11px"
+          data-prod="${prod.id}" onchange="updateUnitBtn(this)" title="e.g. ea, 100, ft, reel">
+      </td>
+      ${supCells}
+      <td style="text-align:center">
+        <button class="btn btn-red" style="padding:3px 7px;font-size:11px" onclick="deleteProd('${prod.id}')"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 async function updatePriceBtn(inp) {
-const prodId=inp.dataset.prod, supId=inp.dataset.sup;
-const v=parseFloat(inp.value);
-if(isNaN(v)||v<=0) {
-await sb.from(‘product_prices’).delete().eq(‘product_id’,prodId).eq(‘supplier_id’,supId);
-if(D.prices[prodId]) delete D.prices[prodId][supId];
-} else {
-await sb.from(‘product_prices’).upsert({product_id:prodId,supplier_id:supId,price:v},{onConflict:‘product_id,supplier_id’});
-if(!D.prices[prodId]) D.prices[prodId]={};
-D.prices[prodId][supId]={price:v,note:D.prices[prodId]?.[supId]?.note||’’};
-}
-toast(‘Price updated’,‘ok’);
+  const prodId=inp.dataset.prod, supId=inp.dataset.sup;
+  const v=parseFloat(inp.value);
+  if(isNaN(v)||v<=0) {
+    await sb.from('product_prices').delete().eq('product_id',prodId).eq('supplier_id',supId);
+    if(D.prices[prodId]) delete D.prices[prodId][supId];
+  } else {
+    await sb.from('product_prices').upsert({product_id:prodId,supplier_id:supId,price:v},{onConflict:'product_id,supplier_id'});
+    if(!D.prices[prodId]) D.prices[prodId]={};
+    D.prices[prodId][supId]={price:v,note:D.prices[prodId]?.[supId]?.note||''};
+  }
+  toast('Price updated','ok');
 }
 
 async function updateUnitBtn(inp) {
-const prodId=inp.dataset.prod;
-await sb.from(‘products’).update({unit_label:inp.value.trim()}).eq(‘id’,prodId);
-const prod=D.products.find(p=>p.id===prodId); if(prod) prod.unit_label=inp.value.trim();
+  const prodId=inp.dataset.prod;
+  await sb.from('products').update({unit_label:inp.value.trim()}).eq('id',prodId);
+  const prod=D.products.find(p=>p.id===prodId); if(prod) prod.unit_label=inp.value.trim();
 }
 
 function toggleNotePopupBtn(btn,e) {
-e.stopPropagation();
-const safeId=btn.dataset.sid;
-document.querySelectorAll(’.note-popup.open’).forEach(p=>{if(p.id!==‘npop-’+safeId) p.classList.remove(‘open’);});
-const pop=document.getElementById(‘npop-’+safeId); if(!pop) return;
-pop.classList.toggle(‘open’);
-if(pop.classList.contains(‘open’)) document.getElementById(‘ntxt-’+safeId)?.focus();
+  e.stopPropagation();
+  const safeId=btn.dataset.sid;
+  document.querySelectorAll('.note-popup.open').forEach(p=>{if(p.id!=='npop-'+safeId) p.classList.remove('open');});
+  const pop=document.getElementById('npop-'+safeId); if(!pop) return;
+  pop.classList.toggle('open');
+  if(pop.classList.contains('open')) document.getElementById('ntxt-'+safeId)?.focus();
 }
-function closeNotePopupBtn(btn) { document.getElementById(‘npop-’+btn.dataset.sid)?.classList.remove(‘open’); }
+function closeNotePopupBtn(btn) { document.getElementById('npop-'+btn.dataset.sid)?.classList.remove('open'); }
 async function saveNoteBtn(btn) {
-const prodId=btn.dataset.prod, supId=btn.dataset.sup, safeId=btn.dataset.sid;
-const note=document.getElementById(‘ntxt-’+safeId)?.value.trim()||’’;
-const priceInfo=D.prices[prodId]?.[supId];
-if(priceInfo) {
-await sb.from(‘product_prices’).update({note}).eq(‘product_id’,prodId).eq(‘supplier_id’,supId);
-D.prices[prodId][supId].note=note;
-}
-document.getElementById(‘npop-’+safeId)?.classList.remove(‘open’);
-renderProducts(); toast(note?‘Note saved’:‘Note removed’,‘ok’);
+  const prodId=btn.dataset.prod, supId=btn.dataset.sup, safeId=btn.dataset.sid;
+  const note=document.getElementById('ntxt-'+safeId)?.value.trim()||'';
+  const priceInfo=D.prices[prodId]?.[supId];
+  if(priceInfo) {
+    await sb.from('product_prices').update({note}).eq('product_id',prodId).eq('supplier_id',supId);
+    D.prices[prodId][supId].note=note;
+  }
+  document.getElementById('npop-'+safeId)?.classList.remove('open');
+  renderProducts(); toast(note?'Note saved':'Note removed','ok');
 }
 
 async function deleteProd(id) {
-if(!confirm(‘Delete this product?’)) return;
-await sb.from(‘product_prices’).delete().eq(‘product_id’,id);
-await sb.from(‘products’).delete().eq(‘id’,id);
-D.products=D.products.filter(p=>p.id!==id); delete D.prices[id];
-renderProducts(); renderField(); toast(‘Product deleted’,‘ok’);
+  if(!confirm('Delete this product?')) return;
+  await sb.from('product_prices').delete().eq('product_id',id);
+  await sb.from('products').delete().eq('id',id);
+  D.products=D.products.filter(p=>p.id!==id); delete D.prices[id];
+  renderProducts(); renderField(); toast('Product deleted','ok');
 }
 
 async function openAddProduct() {
-const sel=document.getElementById(‘np-section’);
-sel.innerHTML=D.sections.map(s=>`<option value="${s.id}">${s.name}</option>`).join(’’);
-document.getElementById(‘np-prices’).innerHTML=` <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px"> ${D.suppliers.map(sup=>`<div class="form-group"><label class="form-label" style="font-size:10px">${sup.name}</label>
-<input class="form-inp" type="number" step="0.01" min="0" placeholder="—" id="npp-${sup.id}" style="padding:6px 8px;font-size:12px"></div>`).join('')} </div>`;
-document.getElementById(‘np-desc’).value=’’; document.getElementById(‘np-unit’).value=’’;
-openModal(‘m-add-product’);
-setTimeout(()=>document.getElementById(‘np-desc’).focus(),80);
+  const sel=document.getElementById('np-section');
+  sel.innerHTML=D.sections.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('np-prices').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+      ${D.suppliers.map(sup=>`<div class="form-group"><label class="form-label" style="font-size:10px">${sup.name}</label>
+        <input class="form-inp" type="number" step="0.01" min="0" placeholder="—" id="npp-${sup.id}" style="padding:6px 8px;font-size:12px"></div>`).join('')}
+    </div>`;
+  document.getElementById('np-desc').value=''; document.getElementById('np-unit').value='';
+  openModal('m-add-product');
+  setTimeout(()=>document.getElementById('np-desc').focus(),80);
 }
 
 async function saveProduct() {
-const desc=document.getElementById(‘np-desc’).value.trim();
-const sec=document.getElementById(‘np-section’).value;
-const unit=document.getElementById(‘np-unit’).value.trim();
-if(!desc) { toast(‘Enter a description’,‘err’); return; }
-const prices2={};
-D.suppliers.forEach(sup=>{ const inp=document.getElementById(‘npp-’+sup.id); if(inp){ const v=parseFloat(inp.value); if(!isNaN(v)&&v>0) prices2[sup.id]=v; } });
-if(!Object.keys(prices2).length) { toast(‘Enter at least one supplier price’,‘err’); return; }
-const {data:prod}=await sb.from(‘products’).insert({description:desc,section_id:sec,unit_label:unit}).select().single();
-if(prod) {
-const priceRows=Object.entries(prices2).map(([sid,price])=>{return {product_id:prod.id,supplier_id:sid,price};});
-if(priceRows.length) await sb.from(‘product_prices’).insert(priceRows);
-await loadProducts(); closeModal(‘m-add-product’); renderProducts(); renderField();
-toast(‘Product added’,‘ok’);
-}
+  const desc=document.getElementById('np-desc').value.trim();
+  const sec=document.getElementById('np-section').value;
+  const unit=document.getElementById('np-unit').value.trim();
+  if(!desc) { toast('Enter a description','err'); return; }
+  const prices2={};
+  D.suppliers.forEach(sup=>{ const inp=document.getElementById('npp-'+sup.id); if(inp){ const v=parseFloat(inp.value); if(!isNaN(v)&&v>0) prices2[sup.id]=v; } });
+  if(!Object.keys(prices2).length) { toast('Enter at least one supplier price','err'); return; }
+  const {data:prod}=await sb.from('products').insert({description:desc,section_id:sec,unit_label:unit}).select().single();
+  if(prod) {
+    const priceRows=Object.entries(prices2).map(([sid,price])=>{return {product_id:prod.id,supplier_id:sid,price};});
+    if(priceRows.length) await sb.from('product_prices').insert(priceRows);
+    await loadProducts(); closeModal('m-add-product'); renderProducts(); renderField();
+    toast('Product added','ok');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — SUPPLIERS
 // ─────────────────────────────────────────────────────────────────────────────
 function renderSuppliers() {
-document.getElementById(‘sup-grid’).innerHTML=D.suppliers.map(sup=>{
-const cnt=Object.values(D.prices).filter(p=>p[sup.id]!==undefined).length;
-return `<div class="sup-card"> <div style="flex:1;min-width:0"> <input class="form-inp" value="${sup.name}" style="font-size:13px;font-weight:600;padding:4px 8px;width:100%;margin-bottom:3px;background:transparent;border-color:transparent" onfocus="this.style.borderColor='var(--border2)';this.style.background='var(--card)'" onblur="this.style.borderColor='transparent';this.style.background='transparent';renameSupBtn(this,'${sup.id}')" onkeydown="if(event.key==='Enter')this.blur()"> <div style="font-size:11px;color:var(--text3);padding:0 8px">${cnt} products priced</div> </div> <button class="btn btn-red" style="padding:4px 9px;font-size:11px;flex-shrink:0;margin-left:8px" onclick="deleteSup('${sup.id}','${sup.name}')"><i class="fa-solid fa-trash"></i></button> </div>`;
-}).join(’’);
+  document.getElementById('sup-grid').innerHTML=D.suppliers.map(sup=>{
+    const cnt=Object.values(D.prices).filter(p=>p[sup.id]!==undefined).length;
+    return `<div class="sup-card">
+      <div style="flex:1;min-width:0">
+        <input class="form-inp" value="${sup.name}"
+          style="font-size:13px;font-weight:600;padding:4px 8px;width:100%;margin-bottom:3px;background:transparent;border-color:transparent"
+          onfocus="this.style.borderColor='var(--border2)';this.style.background='var(--card)'"
+          onblur="this.style.borderColor='transparent';this.style.background='transparent';renameSupBtn(this,'${sup.id}')"
+          onkeydown="if(event.key==='Enter')this.blur()">
+        <div style="font-size:11px;color:var(--text3);padding:0 8px">${cnt} products priced</div>
+      </div>
+      <button class="btn btn-red" style="padding:4px 9px;font-size:11px;flex-shrink:0;margin-left:8px" onclick="deleteSup('${sup.id}','${sup.name}')"><i class="fa-solid fa-trash"></i></button>
+    </div>`;
+  }).join('');
 }
 
 async function renameSupBtn(inp, id) {
-const newName=inp.value.trim().toUpperCase();
-const sup=D.suppliers.find(s=>s.id===id); if(!sup||newName===sup.name) return;
-if(D.suppliers.find(s=>s.name===newName&&s.id!==id)) { toast(‘Name already exists’,‘err’); inp.value=sup.name; return; }
-await sb.from(‘suppliers’).update({name:newName}).eq(‘id’,id);
-sup.name=newName; renderSuppliers(); renderProducts(); toast(`Renamed to ${newName}`,‘ok’);
+  const newName=inp.value.trim().toUpperCase();
+  const sup=D.suppliers.find(s=>s.id===id); if(!sup||newName===sup.name) return;
+  if(D.suppliers.find(s=>s.name===newName&&s.id!==id)) { toast('Name already exists','err'); inp.value=sup.name; return; }
+  await sb.from('suppliers').update({name:newName}).eq('id',id);
+  sup.name=newName; renderSuppliers(); renderProducts(); toast(`Renamed to ${newName}`,'ok');
 }
 
 async function saveSupplier() {
-const name=document.getElementById(‘ns-name’).value.trim().toUpperCase();
-if(!name) { toast(‘Enter a name’,‘err’); return; }
-if(D.suppliers.find(s=>s.name===name)) { toast(‘Already exists’,‘err’); return; }
-await sb.from(‘suppliers’).insert({name,sort_order:D.suppliers.length});
-await loadSuppliers(); closeModal(‘m-add-supplier’); renderSuppliers(); renderProducts();
-toast(‘Supplier added’,‘ok’);
+  const name=document.getElementById('ns-name').value.trim().toUpperCase();
+  if(!name) { toast('Enter a name','err'); return; }
+  if(D.suppliers.find(s=>s.name===name)) { toast('Already exists','err'); return; }
+  await sb.from('suppliers').insert({name,sort_order:D.suppliers.length});
+  await loadSuppliers(); closeModal('m-add-supplier'); renderSuppliers(); renderProducts();
+  toast('Supplier added','ok');
 }
 
 async function deleteSup(id, name) {
-if(!confirm(`Remove ${name}? Their prices will be removed from all products.`)) return;
-await sb.from(‘product_prices’).delete().eq(‘supplier_id’,id);
-await sb.from(‘suppliers’).delete().eq(‘id’,id);
-await loadSuppliers(); await loadProducts(); renderSuppliers(); renderProducts();
-toast(‘Supplier removed’,‘ok’);
+  if(!confirm(`Remove ${name}? Their prices will be removed from all products.`)) return;
+  await sb.from('product_prices').delete().eq('supplier_id',id);
+  await sb.from('suppliers').delete().eq('id',id);
+  await loadSuppliers(); await loadProducts(); renderSuppliers(); renderProducts();
+  toast('Supplier removed','ok');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SETTINGS — USERS
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderUsers() {
-const {data}=await sb.from(‘profiles’).select(’*’).order(‘role’).order(‘username’);
-const tbody=document.getElementById(‘users-tbody’);
-if(!data||!data.length) { tbody.innerHTML=’<tr><td colspan="4" style="padding:12px;color:var(--text3);font-size:12px">No users found.</td></tr>’; return; }
-tbody.innerHTML=data.map((u,i)=>` <tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}"> <td style="padding:8px 12px;font-weight:500">${u.username||'—'}</td> <td style="padding:8px 12px;font-size:11px;color:var(--text3)">${u.id===currentUser?.id?'(you)':''}</td> <td style="padding:8px 12px"><span class="badge ${u.role==='admin'?'badge-amber':'badge-green'}">${u.role}</span></td> <td style="padding:6px 12px;text-align:center"> ${u.id!==currentUser?.id?`<button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="deleteUser('${u.id}','${u.username}')"><i class="fa-solid fa-trash"></i></button>`:'<span style="color:var(--text3);font-size:11px">you</span>'} </td> </tr>`).join(’’);
+  const {data}=await sb.from('profiles').select('*').order('role').order('username');
+  const tbody=document.getElementById('users-tbody');
+  if(!data||!data.length) { tbody.innerHTML='<tr><td colspan="4" style="padding:12px;color:var(--text3);font-size:12px">No users found.</td></tr>'; return; }
+  tbody.innerHTML=data.map((u,i)=>`
+    <tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}">
+      <td style="padding:8px 12px;font-weight:500">${u.username||'—'}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--text3)">${u.id===currentUser?.id?'(you)':''}</td>
+      <td style="padding:8px 12px"><span class="badge ${u.role==='admin'?'badge-amber':'badge-green'}">${u.role}</span></td>
+      <td style="padding:6px 12px;text-align:center">
+        ${u.id!==currentUser?.id?`<button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="deleteUser('${u.id}','${u.username}')"><i class="fa-solid fa-trash"></i></button>`:'<span style="color:var(--text3);font-size:11px">you</span>'}
+      </td>
+    </tr>`).join('');
 }
 
 function openAddUser() {
-document.getElementById(‘nu-email’).value=’’;
-document.getElementById(‘nu-username’).value=’’;
-document.getElementById(‘nu-password’).value=’’;
-document.getElementById(‘nu-role’).value=‘field’;
-openModal(‘m-add-user’);
-setTimeout(()=>document.getElementById(‘nu-email’).focus(),80);
+  document.getElementById('nu-email').value='';
+  document.getElementById('nu-username').value='';
+  document.getElementById('nu-password').value='';
+  document.getElementById('nu-role').value='field';
+  openModal('m-add-user');
+  setTimeout(()=>document.getElementById('nu-email').focus(),80);
 }
 
 async function saveNewUser() {
-const email=document.getElementById(‘nu-email’).value.trim();
-const username=document.getElementById(‘nu-username’).value.trim();
-const password=document.getElementById(‘nu-password’).value.trim();
-const urole=document.getElementById(‘nu-role’).value;
-if(!email) { toast(‘Enter an email’,‘err’); return; }
-if(password.length<6) { toast(‘Password must be 6+ characters’,‘err’); return; }
-showLoading(‘Creating account…’);
-// Use Supabase admin API via service key not available client-side
-// Instead: sign up the user, then upsert profile
-const {data,error}=await sb.auth.signUp({email,password,options:{data:{username,role:urole}}});
-if(error) { hideLoading(); toast(error.message,‘err’); return; }
-if(data.user) {
-await sb.from(‘profiles’).upsert({id:data.user.id,username:username||email,role:urole});
-}
-hideLoading(); closeModal(‘m-add-user’); renderUsers();
-toast(`Account created: ${email}`,‘ok’);
+  const email=document.getElementById('nu-email').value.trim();
+  const username=document.getElementById('nu-username').value.trim();
+  const password=document.getElementById('nu-password').value.trim();
+  const urole=document.getElementById('nu-role').value;
+  if(!email) { toast('Enter an email','err'); return; }
+  if(password.length<6) { toast('Password must be 6+ characters','err'); return; }
+  showLoading('Creating account…');
+  // Use Supabase admin API via service key not available client-side
+  // Instead: sign up the user, then upsert profile
+  const {data,error}=await sb.auth.signUp({email,password,options:{data:{username,role:urole}}});
+  if(error) { hideLoading(); toast(error.message,'err'); return; }
+  if(data.user) {
+    await sb.from('profiles').upsert({id:data.user.id,username:username||email,role:urole});
+  }
+  hideLoading(); closeModal('m-add-user'); renderUsers();
+  toast(`Account created: ${email}`,'ok');
 }
 
 async function deleteUser(id, name) {
-if(!confirm(`Delete account "${name}"? They will no longer be able to log in.`)) return;
-// Can only delete from profiles — auth user remains but can’t access app without profile
-await sb.from(‘profiles’).delete().eq(‘id’,id);
-renderUsers(); toast(`Account removed: ${name}`,‘ok’);
+  if(!confirm(`Delete account "${name}"? They will no longer be able to log in.`)) return;
+  // Can only delete from profiles — auth user remains but can't access app without profile
+  await sb.from('profiles').delete().eq('id',id);
+  renderUsers(); toast(`Account removed: ${name}`,'ok');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SETTINGS — BRANDING & HST
 // ─────────────────────────────────────────────────────────────────────────────
 function getBranding() {
-return { name1:D.settings.brand_name1||‘Mayfair’, name2:D.settings.brand_name2||‘Electric’, logo:D.settings.brand_logo||’’ };
+  return { name1:D.settings.brand_name1||'Mayfair', name2:D.settings.brand_name2||'Electric', logo:D.settings.brand_logo||'' };
 }
 
 async function handleLogoUpload(e) {
-const file=e.target.files[0]; if(!file) return;
-if(file.size>2.5*1024*1024) { toast(‘File too large — max 2MB’,‘err’); return; }
-const reader=new FileReader();
-reader.onload=async ev=>{
-const dataUrl=ev.target.result;
-D.settings.brand_logo=dataUrl;
-await saveSetting(‘brand_logo’,dataUrl);
-applyBranding(); toast(‘Logo updated’,‘ok’);
-};
-reader.readAsDataURL(file); e.target.value=’’;
+  const file=e.target.files[0]; if(!file) return;
+  if(file.size>2.5*1024*1024) { toast('File too large — max 2MB','err'); return; }
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const dataUrl=ev.target.result;
+    D.settings.brand_logo=dataUrl;
+    await saveSetting('brand_logo',dataUrl);
+    applyBranding(); toast('Logo updated','ok');
+  };
+  reader.readAsDataURL(file); e.target.value='';
 }
 
 async function removeLogo() {
-D.settings.brand_logo=’’;
-await saveSetting(‘brand_logo’,’’);
-applyBranding(); toast(‘Logo removed’,‘ok’);
+  D.settings.brand_logo='';
+  await saveSetting('brand_logo','');
+  applyBranding(); toast('Logo removed','ok');
 }
 
 async function saveTextBranding() {
-const name1=document.getElementById(‘brand-name1’).value.trim()||‘Mayfair’;
-const name2=document.getElementById(‘brand-name2’).value.trim()||‘Electric’;
-D.settings.brand_name1=name1; D.settings.brand_name2=name2;
-await Promise.all([saveSetting(‘brand_name1’,name1),saveSetting(‘brand_name2’,name2)]);
-applyBranding(); toast(‘Company name updated’,‘ok’);
+  const name1=document.getElementById('brand-name1').value.trim()||'Mayfair';
+  const name2=document.getElementById('brand-name2').value.trim()||'Electric';
+  D.settings.brand_name1=name1; D.settings.brand_name2=name2;
+  await Promise.all([saveSetting('brand_name1',name1),saveSetting('brand_name2',name2)]);
+  applyBranding(); toast('Company name updated','ok');
 }
 
 async function saveHST() {
-const v=parseFloat(document.getElementById(‘hst-inp’).value);
-if(isNaN(v)||v<0) { toast(‘Invalid rate’,‘err’); return; }
-D.settings.hst=v; await saveSetting(‘hst’,v); toast(‘HST rate saved’,‘ok’);
+  const v=parseFloat(document.getElementById('hst-inp').value);
+  if(isNaN(v)||v<0) { toast('Invalid rate','err'); return; }
+  D.settings.hst=v; await saveSetting('hst',v); toast('HST rate saved','ok');
 }
 
 function applyBranding() {
-const b=getBranding(); const hasLogo=!!b.logo;
-[‘topbar-logo-text’,‘gate-logo-text’].forEach(id=>{
-const el=document.getElementById(id); if(!el) return;
-el.style.display=hasLogo?‘none’:’’;
-let tn=null; for(const n of el.childNodes){if(n.nodeType===3){tn=n;break;}}
-if(tn) tn.textContent=b.name1||‘Mayfair’;
-const em=el.querySelector(‘em’); if(em) em.textContent=b.name2||‘Electric’;
-});
-[‘topbar-logo-img’,‘gate-logo-img’].forEach(id=>{
-const el=document.getElementById(id); if(!el) return;
-el.style.display=hasLogo?‘block’:‘none’; if(hasLogo) el.src=b.logo;
-});
-const pi=document.getElementById(‘logo-preview-img’), pp=document.getElementById(‘logo-preview-placeholder’);
-if(pi&&pp) { pi.style.display=hasLogo?‘block’:‘none’; pp.style.display=hasLogo?‘none’:’’; if(hasLogo) pi.src=b.logo; }
-const n1=document.getElementById(‘brand-name1’), n2=document.getElementById(‘brand-name2’);
-if(n1&&!n1.value) n1.value=b.name1||’’; if(n2&&!n2.value) n2.value=b.name2||’’;
-document.title=`${b.name1||'Mayfair'} ${b.name2||'Electric'} — Procurement`;
+  const b=getBranding(); const hasLogo=!!b.logo;
+  ['topbar-logo-text','gate-logo-text'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.style.display=hasLogo?'none':'';
+    let tn=null; for(const n of el.childNodes){if(n.nodeType===3){tn=n;break;}}
+    if(tn) tn.textContent=b.name1||'Mayfair';
+    const em=el.querySelector('em'); if(em) em.textContent=b.name2||'Electric';
+  });
+  ['topbar-logo-img','gate-logo-img'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.style.display=hasLogo?'block':'none'; if(hasLogo) el.src=b.logo;
+  });
+  const pi=document.getElementById('logo-preview-img'), pp=document.getElementById('logo-preview-placeholder');
+  if(pi&&pp) { pi.style.display=hasLogo?'block':'none'; pp.style.display=hasLogo?'none':''; if(hasLogo) pi.src=b.logo; }
+  const n1=document.getElementById('brand-name1'), n2=document.getElementById('brand-name2');
+  if(n1&&!n1.value) n1.value=b.name1||''; if(n2&&!n2.value) n2.value=b.name2||'';
+  document.title=`${b.name1||'Mayfair'} ${b.name2||'Electric'} — Procurement`;
 }
 
 async function exportData() {
-const exp={suppliers:D.suppliers,sections:D.sections,products:D.products,prices:D.prices,settings:D.settings};
-const blob=new Blob([JSON.stringify(exp,null,2)],{type:‘application/json’});
-const a=document.createElement(‘a’); a.href=URL.createObjectURL(blob);
-a.download=‘mayfair-backup-’+new Date().toISOString().slice(0,10)+’.json’; a.click();
-toast(‘Backup exported’,‘ok’);
+  const exp={suppliers:D.suppliers,sections:D.sections,products:D.products,prices:D.prices,settings:D.settings};
+  const blob=new Blob([JSON.stringify(exp,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='mayfair-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  toast('Backup exported','ok');
 }
 
 async function resetAll() {
-if(!confirm(‘Reset ALL products, suppliers and sections to defaults? Requests and settings are kept.’)) return;
-toast(‘Reset not available in cloud mode — use export/import instead’,‘info’);
+  if(!confirm('Reset ALL products, suppliers and sections to defaults? Requests and settings are kept.')) return;
+  toast('Reset not available in cloud mode — use export/import instead','info');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SEARCH
 // ─────────────────────────────────────────────────────────────────────────────
-function hl(text,q) { return text.replace(new RegExp(’(’+q.replace(/[.*+?^${}()|[]\]/g,’\$&’)+’)’,‘gi’),’<mark>$1</mark>’); }
+function hl(text,q) { return text.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>'); }
 function onSearch(val) {
-document.getElementById(‘sclear’).style.display=val?‘block’:‘none’;
-if(!val) { closeDrop(); return; }
-const q=val.toLowerCase();
-sRes=D.products.filter(p=>p.description.toLowerCase().includes(q)).map(p=>{return {p,sec:getSectionName(p.section_id)}});
-sIdx=-1;
-const dd=document.getElementById(‘sdrop’);
-if(!sRes.length) { dd.innerHTML=`<div class="snone">No results for "${val}"</div>`; dd.classList.add(‘open’); return; }
-dd.innerHTML=sRes.slice(0,10).map((r,i)=>` <div class="sresult" data-i="${i}" onclick="jumpTo('${r.p.id}')"> <div class="sresult-name">${hl(r.p.description,val)}${fqty[r.p.id]?`<span class="sresult-qty">${fqty[r.p.id]}</span>`:''}</div> <div class="sresult-meta">${r.sec}</div> </div>`).join(’’)+(sRes.length>10?`<div class="snone" style="font-size:11px">${sRes.length-10} more — keep typing</div>`:’’);
-dd.classList.add(‘open’);
+  document.getElementById('sclear').style.display=val?'block':'none';
+  if(!val) { closeDrop(); return; }
+  const q=val.toLowerCase();
+  sRes=D.products.filter(p=>p.description.toLowerCase().includes(q)).map(p=>{return {p,sec:getSectionName(p.section_id)}});
+  sIdx=-1;
+  const dd=document.getElementById('sdrop');
+  if(!sRes.length) { dd.innerHTML=`<div class="snone">No results for "${val}"</div>`; dd.classList.add('open'); return; }
+  dd.innerHTML=sRes.slice(0,10).map((r,i)=>`
+    <div class="sresult" data-i="${i}" onclick="jumpTo('${r.p.id}')">
+      <div class="sresult-name">${hl(r.p.description,val)}${fqty[r.p.id]?`<span class="sresult-qty">${fqty[r.p.id]}</span>`:''}</div>
+      <div class="sresult-meta">${r.sec}</div>
+    </div>`).join('')+(sRes.length>10?`<div class="snone" style="font-size:11px">${sRes.length-10} more — keep typing</div>`:'');
+  dd.classList.add('open');
 }
 function onSearchKey(e) {
-const items=document.querySelectorAll(’.sresult’);
-if(e.key===‘ArrowDown’) { e.preventDefault(); sIdx=Math.min(sIdx+1,items.length-1); items.forEach((el,i)=>el.classList.toggle(‘focused’,i===sIdx)); }
-else if(e.key===‘ArrowUp’) { e.preventDefault(); sIdx=Math.max(sIdx-1,0); items.forEach((el,i)=>el.classList.toggle(‘focused’,i===sIdx)); }
-else if(e.key===‘Enter’) { if(sIdx>=0&&sRes[sIdx]) jumpTo(sRes[sIdx].p.id); else if(sRes.length) jumpTo(sRes[0].p.id); }
-else if(e.key===‘Escape’) clearSearch();
+  const items=document.querySelectorAll('.sresult');
+  if(e.key==='ArrowDown') { e.preventDefault(); sIdx=Math.min(sIdx+1,items.length-1); items.forEach((el,i)=>el.classList.toggle('focused',i===sIdx)); }
+  else if(e.key==='ArrowUp') { e.preventDefault(); sIdx=Math.max(sIdx-1,0); items.forEach((el,i)=>el.classList.toggle('focused',i===sIdx)); }
+  else if(e.key==='Enter') { if(sIdx>=0&&sRes[sIdx]) jumpTo(sRes[sIdx].p.id); else if(sRes.length) jumpTo(sRes[0].p.id); }
+  else if(e.key==='Escape') clearSearch();
 }
 function jumpTo(id) {
-closeDrop(); clearSearch();
-const row=document.getElementById(‘mrow-’+id); if(!row) return;
-row.scrollIntoView({behavior:‘smooth’,block:‘center’});
-row.classList.remove(‘flash’); void row.offsetWidth; row.classList.add(‘flash’);
-setTimeout(()=>{row.classList.remove(‘flash’); document.getElementById(‘qi-’+id)?.focus();},1300);
-const prod=D.products.find(p=>p.id===id);
-if(prod) document.querySelectorAll(’.fsec-item’).forEach(el=>el.classList.toggle(‘active’,el.dataset.sid===prod.section_id));
+  closeDrop(); clearSearch();
+  const row=document.getElementById('mrow-'+id); if(!row) return;
+  row.scrollIntoView({behavior:'smooth',block:'center'});
+  row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+  setTimeout(()=>{row.classList.remove('flash'); document.getElementById('qi-'+id)?.focus();},1300);
+  const prod=D.products.find(p=>p.id===id);
+  if(prod) document.querySelectorAll('.fsec-item').forEach(el=>el.classList.toggle('active',el.dataset.sid===prod.section_id));
 }
-function openDrop() { if(document.getElementById(‘search-inp’).value&&sRes.length) document.getElementById(‘sdrop’).classList.add(‘open’); }
-function closeDrop() { document.getElementById(‘sdrop’).classList.remove(‘open’); sIdx=-1; }
-function clearSearch() { document.getElementById(‘search-inp’).value=’’; document.getElementById(‘sclear’).style.display=‘none’; sRes=[]; closeDrop(); }
+function openDrop() { if(document.getElementById('search-inp').value&&sRes.length) document.getElementById('sdrop').classList.add('open'); }
+function closeDrop() { document.getElementById('sdrop').classList.remove('open'); sIdx=-1; }
+function clearSearch() { document.getElementById('search-inp').value=''; document.getElementById('sclear').style.display='none'; sRes=[]; closeDrop(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODALS / TOAST / UTILS
 // ─────────────────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add(‘open’); }
-function closeModal(id) { document.getElementById(id).classList.remove(‘open’); }
-document.querySelectorAll(’.overlay’).forEach(o=>o.addEventListener(‘click’,e=>{if(e.target===o) o.classList.remove(‘open’);}));
-document.addEventListener(‘click’,e=>{
-if(!document.getElementById(‘search-area’)?.contains(e.target)) closeDrop();
-if(!e.target.closest(’.note-popup’)&&!e.target.closest(’.note-btn’)) document.querySelectorAll(’.note-popup.open’).forEach(p=>p.classList.remove(‘open’));
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('open');}));
+document.addEventListener('click',e=>{
+  if(!document.getElementById('search-area')?.contains(e.target)) closeDrop();
+  if(!e.target.closest('.note-popup')&&!e.target.closest('.note-btn')) document.querySelectorAll('.note-popup.open').forEach(p=>p.classList.remove('open'));
 });
 let _toastT;
-function toast(msg,type=‘ok’) {
-const t=document.getElementById(‘toast’); t.textContent=msg;
-t.className=‘toast t-’+type+’ show’; clearTimeout(_toastT);
-_toastT=setTimeout(()=>t.classList.remove(‘show’),2800);
+function toast(msg,type='ok') {
+  const t=document.getElementById('toast'); t.textContent=msg;
+  t.className='toast t-'+type+' show'; clearTimeout(_toastT);
+  _toastT=setTimeout(()=>t.classList.remove('show'),2800);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
 (async()=>{
-showLoading(‘Connecting…’);
-// Fallback — always show login after 5 seconds no matter what
-const fallback = setTimeout(()=>{ hideLoading(); document.getElementById(‘g-email’).focus(); }, 5000);
-try {
-const {data:{session}}=await sb.auth.getSession();
-if(session?.user) {
-const {data:profile}=await sb.from(‘profiles’).select(’*’).eq(‘id’,session.user.id).single();
-if(profile) {
-clearTimeout(fallback);
-currentUser={…session.user,profile};
-role=profile.role;
-await boot();
-return;
-}
-}
-} catch(e) { console.error(‘Init error:’,e); }
-clearTimeout(fallback);
-hideLoading();
-setTimeout(()=>document.getElementById(‘g-email’).focus(),80);
+  showLoading('Connecting…');
+  // Fallback — always show login after 5 seconds no matter what
+  const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email').focus(); }, 5000);
+  try {
+    const {data:{session}}=await sb.auth.getSession();
+    if(session?.user) {
+      const {data:profile}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
+      if(profile) {
+        clearTimeout(fallback);
+        currentUser={...session.user,profile};
+        role=profile.role;
+        await boot();
+        return;
+      }
+    }
+  } catch(e) { console.error('Init error:',e); }
+  clearTimeout(fallback);
+  hideLoading();
+  setTimeout(()=>document.getElementById('g-email').focus(),80);
 })();
 </script>
-
 </body>
 </html>
