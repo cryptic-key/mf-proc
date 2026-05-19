@@ -85,6 +85,12 @@ body{background:#0f1923}
 .badge-green{background:var(--green-lt);color:var(--green)}
 .badge-blue{background:var(--blue-lt);color:var(--blue2)}
 .badge-gray{background:var(--gray-lt);color:var(--gray2)}
+.badge-red{background:var(--red-lt);color:var(--red)}
+.user-actions{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.user-actions .btn{padding:3px 8px;font-size:10px}
+.user-detail-grid{display:grid;grid-template-columns:120px 1fr;gap:8px 14px;font-size:12px;margin-bottom:16px}
+.user-detail-grid dt{color:var(--text3);font-weight:500}
+.user-detail-grid dd{color:var(--text);word-break:break-all}
 .form-group{display:flex;flex-direction:column;gap:5px}
 .form-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
 .form-inp{background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:9px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
@@ -444,6 +450,23 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   </div>
 </div>
 
+<!-- USER DETAIL (admin) -->
+<div class="overlay" id="m-user-detail">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title"><i class="fa-solid fa-user" style="color:var(--blue2);margin-right:8px"></i>User Details</div>
+    <dl class="user-detail-grid" id="ud-grid"></dl>
+    <div class="form-group" style="margin-bottom:12px" id="ud-setpw-wrap">
+      <label class="form-label">Set password directly</label>
+      <input class="form-inp" type="password" id="ud-new-pw" placeholder="Min. 6 characters">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('m-user-detail')">Close</button>
+      <button class="btn btn-amber" id="ud-reset-btn" onclick="sendUserPasswordResetFromDetail()"><i class="fa-solid fa-envelope"></i> Send reset email</button>
+      <button class="btn btn-green" id="ud-setpw-btn" onclick="setUserPasswordFromDetail()"><i class="fa-solid fa-key"></i> Set password</button>
+    </div>
+  </div>
+</div>
+
 <!-- PO NUMBER PROMPT -->
 <div class="overlay" id="m-po-number">
   <div class="modal">
@@ -659,11 +682,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:12px">
               <thead><tr>
-                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Name</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">User</th>
                 <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Role</th>
-                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Password</th>
-                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500">Lock</th>
-                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:center;font-size:11px;font-weight:500;width:60px">Del</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500">Status</th>
+                <th style="background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:right;font-size:11px;font-weight:500">Actions</th>
               </tr></thead>
               <tbody id="users-tbody"></tbody>
             </table>
@@ -686,6 +708,58 @@ const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
 const _sc = (window.supabase || window.Supabase);
 const sb = _sc.createClient(SUPABASE_URL, SUPABASE_KEY);
+let _adminUsersCache = [];
+let _detailUserId = null;
+
+async function adminApi(action, payload = {}) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('Not signed in');
+  if (window.location.protocol === 'file:') {
+    throw new Error('Open the app via http:// (e.g. Live Server), not as a file:// link — browsers block admin API from local files.');
+  }
+  const { data, error } = await sb.functions.invoke('admin-users', {
+    body: { action, ...payload },
+  });
+  if (error) {
+    const msg = error.message || String(error);
+    if (/failed to fetch|failed to send|network|edge function/i.test(msg)) {
+      throw new Error('Admin API not reachable. Deploy the admin-users Edge Function in Supabase (Edge Functions), or use Dashboard → Edge Functions → Create "admin-users".');
+    }
+    throw new Error(msg);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function createUserFallback(email, password, username, urole) {
+  const { data: { session: adminSession } } = await sb.auth.getSession();
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password,
+    options: { data: { username, role: urole } },
+  });
+  if (error) throw error;
+  if (data.user) {
+    await sb.from('profiles').upsert({
+      id: data.user.id,
+      email,
+      username: username || email.split('@')[0],
+      role: urole,
+      locked: false,
+    });
+  }
+  if (adminSession?.access_token && adminSession?.refresh_token) {
+    await sb.auth.setSession({
+      access_token: adminSession.access_token,
+      refresh_token: adminSession.refresh_token,
+    });
+  }
+  return data;
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE
@@ -1545,73 +1619,111 @@ async function deleteSup(id, name) {
 // SETTINGS — USERS
 // ─────────────────────────────────────────────────────────────────────────────
 async function renderUsers() {
-  const {data}=await sb.from('profiles').select('*').order('role').order('username');
-  const tbody=document.getElementById('users-tbody');
-  if(!data||!data.length) { tbody.innerHTML='<tr><td colspan="5" style="padding:12px;color:var(--text3);font-size:12px">No users found.</td></tr>'; return; }
-  tbody.innerHTML=data.map((u,i)=>{
+  const { data, error } = await sb.from('profiles').select('*').order('role').order('username');
+  const tbody = document.getElementById('users-tbody');
+  if (error) { tbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:var(--red)">' + escHtml(error.message) + '</td></tr>'; return; }
+  _adminUsersCache = data || [];
+  if (!_adminUsersCache.length) { tbody.innerHTML = '<tr><td colspan="4" style="padding:12px;color:var(--text3);font-size:12px">No users found.</td></tr>'; return; }
+  tbody.innerHTML = _adminUsersCache.map((u, i) => {
     const isMe = u.id===currentUser?.id;
     const locked = !!u.locked;
-    const safeId = u.id.replace(/-/g,'_');
-    const displayEmail = u.id===currentUser?.id ? currentUser?.email : '';
+    const email = u.email || (isMe ? currentUser?.email : '') || '—';
+    const name = escHtml(u.username || '—');
     return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}${locked?';opacity:.55':''}">
       <td style="padding:8px 12px">
-        <div style="font-weight:500">${u.username||'—'} ${locked?'<span class="badge badge-red" style="font-size:9px">locked</span>':''}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px" id="email-${safeId}">${displayEmail||'<span style="opacity:.4">—</span>'}</div>
+        <div style="font-weight:500">${name}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${escHtml(email)}</div>
       </td>
-      <td style="padding:8px 12px"><span class="badge ${u.role==='admin'?'badge-amber':'badge-green'}">${u.role}</span></td>
-      <td style="padding:6px 12px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="password" id="upw-${safeId}" value="placeholder" placeholder="New password"
-            style="width:130px;background:var(--card2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;font-size:12px;font-family:'Inter',sans-serif;outline:none">
-          <button class="btn" style="padding:3px 8px;font-size:11px" onclick="togglePwVis('${safeId}')"><i class="fa-solid fa-eye" id="eye-${safeId}"></i></button>
-          <button class="btn btn-amber" style="padding:3px 8px;font-size:11px" onclick="changeUserPw('${u.id}','${safeId}')">Set</button>
-        </div>
-      </td>
-      <td style="padding:6px 12px;text-align:center">
-        ${!isMe?`<button class="btn ${locked?'btn-green':'btn-amber'}" style="padding:3px 8px;font-size:11px" onclick="toggleLockUser('${u.id}','${u.username}',${locked})">
-          <i class="fa-solid fa-${locked?'lock-open':'lock'}"></i> ${locked?'Unlock':'Lock'}
-        </button>`:''}
-      </td>
-      <td style="padding:6px 12px;text-align:center">
-        ${!isMe?`<button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="deleteUser('${u.id}','${u.username}')"><i class="fa-solid fa-trash"></i></button>`:'<span style="color:var(--text3);font-size:11px">you</span>'}
-      </td>
+      <td style="padding:8px 12px">${isMe ? '<span class="badge '+(u.role==='admin'?'badge-amber':'badge-green')+'">'+u.role+'</span>' : '<select class="form-select" style="padding:4px 8px;font-size:11px;min-width:88px" onchange="changeUserRole(\''+u.id+'\', this.value)"><option value="field"'+(u.role==='field'?' selected':'')+'>field</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>admin</option></select>'}</td>
+      <td style="padding:8px 12px">${locked?'<span class="badge badge-red">Locked</span>':'<span class="badge badge-green">Active</span>'}</td>
+      <td style="padding:6px 12px"><div class="user-actions"><button class="btn" onclick="openUserDetail('${u.id}')"><i class="fa-solid fa-circle-info"></i></button><button class="btn btn-amber" onclick="sendUserPasswordResetById('${u.id}')"><i class="fa-solid fa-envelope"></i></button>${!isMe?'<button class="btn '+(locked?'btn-green':'btn-amber')+'" onclick="toggleLockUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\','+locked+')"><i class="fa-solid fa-'+(locked?'lock-open':'lock')+'"></i></button><button class="btn btn-red" onclick="deleteUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\')"><i class="fa-solid fa-trash"></i></button>':''}</div></td>
     </tr>`;
   }).join('');
 }
 
-function togglePwVis(safeId) {
-  const inp = document.getElementById('upw-'+safeId);
-  const eye = document.getElementById('eye-'+safeId);
-  if(!inp) return;
-  if(inp.type==='password') {
-    inp.type='text';
-    if(inp.value==='placeholder') inp.value='';
-    eye.className='fa-solid fa-eye-slash';
-  } else {
-    inp.type='password';
-    eye.className='fa-solid fa-eye';
+function openUserDetail(userId) {
+  const u = _adminUsersCache.find(x => x.id === userId);
+  if (!u) return;
+  _detailUserId = userId;
+  const email = u.email || (userId === currentUser?.id ? currentUser?.email : '') || '—';
+  const rows = [['User ID', u.id], ['Display name', u.username || '—'], ['Email', email], ['Role', u.role], ['Status', u.locked ? 'Locked' : 'Active'], ['Created', u.created_at ? new Date(u.created_at).toLocaleString() : '—'], ['Updated', u.updated_at ? new Date(u.updated_at).toLocaleString() : '—']];
+  document.getElementById('ud-grid').innerHTML = rows.map(([k, v]) => `<dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd>`).join('');
+  document.getElementById('ud-new-pw').value = '';
+  const isMe = userId === currentUser?.id;
+  document.getElementById('ud-setpw-wrap').style.display = isMe ? 'none' : '';
+  document.getElementById('ud-setpw-btn').style.display = isMe ? 'none' : '';
+  openModal('m-user-detail');
+}
+
+async function sendUserPasswordResetFromDetail() {
+  if (!_detailUserId) return;
+  await sendUserPasswordResetById(_detailUserId);
+}
+
+async function sendUserPasswordResetById(userId) {
+  const u = _adminUsersCache.find(x => x.id === userId);
+  const email = u?.email || (userId === currentUser?.id ? currentUser?.email : '');
+  if (!email || email === '—') { toast('No email on file for this user', 'err'); return; }
+  await sendUserPasswordReset(email);
+}
+
+async function sendUserPasswordReset(email) {
+  if (!email) { toast('No email address', 'err'); return; }
+  showLoading('Sending reset email…');
+  try {
+    await adminApi('reset_password', { email, redirectTo: window.location.href.split('#')[0] });
+    hideLoading();
+    toast('Reset email sent to ' + email, 'ok');
+  } catch (e) {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+    hideLoading();
+    if (error) { toast(error.message, 'err'); return; }
+    toast('Reset email sent to ' + email, 'ok');
   }
 }
 
-async function changeUserPw(userId, safeId) {
-  const inp = document.getElementById('upw-'+safeId);
-  const pw = inp?.value?.trim();
-  if(!pw||pw==='placeholder'||pw.length<6) { toast('Enter a password (6+ characters)','err'); return; }
-  // Store new password in profile — admin can set it, user uses it next login
-  // Note: full password reset requires Supabase Admin API (service key)
-  // For now store a flag and show a note
-  await sb.from('profiles').update({password_note: pw}).eq('id',userId);
-  inp.value=''; inp.type='password';
-  document.getElementById('eye-'+safeId).className='fa-solid fa-eye';
-  toast('Password change saved — user must reset via email link for full effect','info');
+async function setUserPasswordFromDetail() {
+  if (!_detailUserId) return;
+  const pw = document.getElementById('ud-new-pw').value.trim();
+  if (pw.length < 6) { toast('Password must be 6+ characters', 'err'); return; }
+  if (!confirm('Set a new password for this user?')) return;
+  showLoading('Updating password…');
+  try {
+    await adminApi('set_password', { userId: _detailUserId, password: pw });
+    hideLoading();
+    document.getElementById('ud-new-pw').value = '';
+    toast('Password updated', 'ok');
+  } catch (e) { hideLoading(); toast(e.message, 'err'); }
+}
+
+async function changeUserRole(userId, newRole) {
+  const u = _adminUsersCache.find(x => x.id === userId);
+  if (!u || u.role === newRole) return;
+  if (!confirm('Change role for "' + (u.username || u.email) + '" to ' + newRole + '?')) { renderUsers(); return; }
+  showLoading('Updating role…');
+  try {
+    await adminApi('update_role', { userId, role: newRole });
+    hideLoading(); renderUsers(); toast('Role updated', 'ok');
+  } catch (e) {
+    hideLoading();
+    const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
+    if (error) { toast(e.message, 'err'); renderUsers(); return; }
+    renderUsers(); toast('Role updated', 'ok');
+  }
 }
 
 async function toggleLockUser(userId, username, currentlyLocked) {
   const action = currentlyLocked ? 'unlock' : 'lock';
-  if(!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} account "${username}"?`)) return;
-  await sb.from('profiles').update({locked: !currentlyLocked}).eq('id',userId);
-  renderUsers();
-  toast(`Account ${action}ed: ${username}`,'ok');
+  if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' account "' + username + '"?')) return;
+  showLoading(action === 'lock' ? 'Locking…' : 'Unlocking…');
+  try {
+    await adminApi(currentlyLocked ? 'unlock' : 'lock', { userId });
+    hideLoading(); renderUsers(); toast('Account ' + action + 'ed: ' + username, 'ok');
+  } catch (e) {
+    await sb.from('profiles').update({ locked: !currentlyLocked }).eq('id', userId);
+    hideLoading(); renderUsers();
+    toast('Profile ' + action + 'ed (deploy Edge Function for full auth lock)', 'info');
+  }
 }
 
 function openAddUser() {
@@ -1624,29 +1736,46 @@ function openAddUser() {
 }
 
 async function saveNewUser() {
-  const email=document.getElementById('nu-email').value.trim();
-  const username=document.getElementById('nu-username').value.trim();
-  const password=document.getElementById('nu-password').value.trim();
-  const urole=document.getElementById('nu-role').value;
-  if(!email) { toast('Enter an email','err'); return; }
-  if(password.length<6) { toast('Password must be 6+ characters','err'); return; }
+  const email = document.getElementById('nu-email').value.trim().toLowerCase();
+  const username = document.getElementById('nu-username').value.trim();
+  const password = document.getElementById('nu-password').value.trim();
+  const urole = document.getElementById('nu-role').value;
+  if (!email) { toast('Enter an email', 'err'); return; }
+  if (password.length < 6) { toast('Password must be 6+ characters', 'err'); return; }
   showLoading('Creating account…');
-  // Use Supabase admin API via service key not available client-side
-  // Instead: sign up the user, then upsert profile
-  const {data,error}=await sb.auth.signUp({email,password,options:{data:{username,role:urole}}});
-  if(error) { hideLoading(); toast(error.message,'err'); return; }
-  if(data.user) {
-    await sb.from('profiles').upsert({id:data.user.id, username:username||email, role:urole, email:email});
+  try {
+    await adminApi('create', { email, password, username, role: urole });
+    hideLoading(); closeModal('m-add-user'); renderUsers();
+    toast('Account created: ' + email, 'ok');
+  } catch (e) {
+    if (/not reachable|not deployed|edge function/i.test(e.message)) {
+      try {
+        await createUserFallback(email, password, username, urole);
+        hideLoading(); closeModal('m-add-user'); renderUsers();
+        toast('Account created (basic mode). Deploy admin-users function for full admin tools.', 'ok');
+        return;
+      } catch (e2) {
+        hideLoading();
+        toast(e2.message || 'Could not create account', 'err');
+        return;
+      }
+    }
+    hideLoading(); toast(e.message, 'err');
   }
-  hideLoading(); closeModal('m-add-user'); renderUsers();
-  toast(`Account created: ${email}`,'ok');
 }
 
 async function deleteUser(id, name) {
-  if(!confirm(`Delete account "${name}"? They will no longer be able to log in.`)) return;
-  // Can only delete from profiles — auth user remains but can't access app without profile
-  await sb.from('profiles').delete().eq('id',id);
-  renderUsers(); toast(`Account removed: ${name}`,'ok');
+  if (!confirm('Permanently delete "' + name + '"? This removes login and profile.')) return;
+  showLoading('Deleting account…');
+  try {
+    await adminApi('delete', { userId: id });
+    hideLoading(); renderUsers(); toast('Account removed: ' + name, 'ok');
+  } catch (e) {
+    const { error } = await sb.from('profiles').delete().eq('id', id);
+    hideLoading();
+    if (error) { toast(error.message, 'err'); return; }
+    renderUsers(); toast('Profile removed (deploy Edge Function to delete auth user)', 'info');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1824,6 +1953,13 @@ function toast(msg,type='ok') {
     if(session?.user) {
       const {data:profile}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
       if(profile) {
+        if(profile.locked) {
+          await sb.auth.signOut();
+          clearTimeout(fallback);
+          hideLoading();
+          document.getElementById('g-err').textContent = 'This account has been locked. Contact your admin.';
+          return;
+        }
         clearTimeout(fallback);
         currentUser={...session.user,profile};
         role=profile.role;
