@@ -6,7 +6,7 @@
 <title>Mayfair Electric — Procurement</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js" onerror="window.__sbLoadFailed=true"></script>
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1074,12 +1074,12 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.5.3';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
-const _sc = (window.supabase || window.Supabase);
-const sb = _sc.createClient(SUPABASE_URL, SUPABASE_KEY);
+const _sc = window.supabase || window.Supabase;
+const sb = _sc?.createClient ? _sc.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 const ADMIN_FN = 'swift-handler'; // must match Supabase Edge Functions name exactly
 let _adminUsersCache = [];
 let _detailUserId = null;
@@ -1167,7 +1167,14 @@ function showLoading(msg='Loading…') {
   document.getElementById('loading-msg').textContent = msg;
 }
 function hideLoading() {
-  document.getElementById('loading-overlay').classList.add('hidden');
+  document.getElementById('loading-overlay')?.classList.add('hidden');
+}
+function showBootError(msg) {
+  hideLoading();
+  const err = document.getElementById('g-err');
+  if (err) err.textContent = msg;
+  document.getElementById('gate')?.classList.remove('hidden');
+  document.getElementById('app').style.display = 'none';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1252,24 +1259,26 @@ async function gateLogout() {
 
 async function boot() {
   showLoading('Loading data…');
-  await loadAllData();
-  hideLoading();
-  document.getElementById('gate').classList.add('hidden');
-  document.getElementById('app').style.display = 'flex';
-  const name = currentUser?.profile?.username || currentUser?.email || 'User';
-  document.getElementById('user-label').textContent = role === 'admin' ? `Admin (${name})` : name;
-  document.getElementById('field-tabs').style.display = role === 'field' ? 'flex' : 'none';
-  document.getElementById('admin-tabs').style.display = role === 'admin' ? 'flex' : 'none';
-  document.getElementById('search-area').style.display = 'none';
-  applyBranding();
-  setupFieldProjectInput();
-  if (role === 'field') { renderField(); switchView('field'); updateBadge(); }
-  else { renderReqList(); switchView('requests'); updateBadge(); }
-  toast('Signed in', 'info');
-  // Subscribe to realtime request changes
-  sb.channel('requests').on('postgres_changes', { event:'*', schema:'public', table:'requests' }, () => {
-    loadRequests().then(() => { renderReqList(); renderPOSentList(); updateBadge(); if(activeReq){ const r=D.requests.find(x=>x.id===activeReq); if(r) renderDetail(r); } });
-  }).subscribe();
+  try {
+    await loadAllData();
+    document.getElementById('gate').classList.add('hidden');
+    document.getElementById('app').style.display = 'flex';
+    const name = currentUser?.profile?.username || currentUser?.email || 'User';
+    document.getElementById('user-label').textContent = role === 'admin' ? `Admin (${name})` : name;
+    document.getElementById('field-tabs').style.display = role === 'field' ? 'flex' : 'none';
+    document.getElementById('admin-tabs').style.display = role === 'admin' ? 'flex' : 'none';
+    document.getElementById('search-area').style.display = 'none';
+    applyBranding();
+    setupFieldProjectInput();
+    if (role === 'field') { renderField(); switchView('field'); updateBadge(); }
+    else { renderReqList(); switchView('requests'); updateBadge(); }
+    toast('Signed in', 'info');
+    sb.channel('requests').on('postgres_changes', { event:'*', schema:'public', table:'requests' }, () => {
+      loadRequests().then(() => { renderReqList(); renderPOSentList(); updateBadge(); if(activeReq){ const r=D.requests.find(x=>x.id===activeReq); if(r) renderDetail(r); } });
+    }).subscribe();
+  } finally {
+    hideLoading();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2389,6 +2398,20 @@ function renderFieldDetail(req) {
     ${bodyHtml}`;
 }
 
+function reqAddItemRowHtml(reqId) {
+  return '<div id="add-item-row-' + reqId + '" style="display:none;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px">' +
+    '<div style="display:flex;gap:8px;align-items:center;padding:0 4px;flex-wrap:wrap">' +
+    '<div style="position:relative;flex:1;min-width:200px">' +
+    '<i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none"></i>' +
+    '<input class="form-inp" id="add-item-search-' + reqId + '" placeholder="Search products to add..." style="padding-left:28px;font-size:12px;width:100%" oninput="renderAddItemResults(\'' + reqId + '\',this.value)">' +
+    '</div>' +
+    '<input class="edit-qty" type="number" min="1" value="1" id="add-item-qty-' + reqId + '" style="width:64px" placeholder="QTY">' +
+    '<button class="btn" style="padding:5px 10px;font-size:11px" onclick="toggleAddItem(\'' + reqId + '\')">Cancel</button>' +
+    '</div>' +
+    '<div id="add-item-results-' + reqId + '" style="margin-top:6px;max-height:180px;overflow-y:auto;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);display:none"></div>' +
+    '</div>';
+}
+
 function renderDetail(req) {
   if (role === 'field') { renderFieldDetail(req); return; }
   const panel=document.getElementById('req-detail');
@@ -2400,6 +2423,10 @@ function renderDetail(req) {
   const supKeys=Object.keys(bySup);
   if(!activePOSup||!bySup[activePOSup]) activePOSup=supKeys[0]||null;
   const itemsLocked = isPostPOSentStatus(req.status);
+  const addItemBtn = itemsLocked ? '' : '<button class="btn btn-green" style="padding:4px 10px;font-size:11px" onclick="toggleAddItem(\'' + req.id + '\')"><i class="fa-solid fa-plus"></i> Add item</button>';
+  const addItemRow = itemsLocked ? '' : reqAddItemRowHtml(req.id);
+  const delColHdr = itemsLocked ? '' : '<th style="width:8%;text-align:center">Del</th>';
+  const lineItemsHint = itemsLocked ? 'QTY and supplier locked - order sent to suppliers' : 'Edit QTYs, change supplier, or remove items';
 
   const itemRows=req.items.map((item,idx)=>{
     const prod=prodById(item.product_id);
@@ -2475,21 +2502,11 @@ function renderDetail(req) {
     <div class="card${itemsLocked?' req-items-locked':''}" style="margin-bottom:16px">
       <div class="card-title">Line Items
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:var(--text3);font-weight:400">${itemsLocked?'QTY and supplier locked — order sent to suppliers':'Edit QTYs, change supplier, or remove items'}</span>
-          ${itemsLocked?'':`<button class="btn btn-green" style="padding:4px 10px;font-size:11px" onclick="toggleAddItem('${req.id}')"><i class="fa-solid fa-plus"></i> Add item</button>`}
+          <span style="font-size:11px;color:var(--text3);font-weight:400">${lineItemsHint}</span>
+          ${addItemBtn}
         </div>
       </div>
-      ${itemsLocked?'':`<div id="add-item-row-${req.id}" style="display:none;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px">
-        <div style="display:flex;gap:8px;align-items:center;padding:0 4px;flex-wrap:wrap">
-          <div style="position:relative;flex:1;min-width:200px">
-            <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none"></i>
-            <input class="form-inp" id="add-item-search-${req.id}" placeholder="Search products to add…" style="padding-left:28px;font-size:12px;width:100%" oninput="renderAddItemResults('${req.id}',this.value)">
-          </div>
-          <input class="edit-qty" type="number" min="1" value="1" id="add-item-qty-${req.id}" style="width:64px" placeholder="QTY">
-          <button class="btn" style="padding:5px 10px;font-size:11px" onclick="toggleAddItem('${req.id}')">Cancel</button>
-        </div>
-        <div id="add-item-results-${req.id}" style="margin-top:6px;max-height:180px;overflow-y:auto;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);display:none"></div>
-      </div>`}
+      ${addItemRow}
       <div style="overflow-x:auto">
         <table class="edit-table">
           <thead><tr>
@@ -2499,7 +2516,7 @@ function renderDetail(req) {
             <th style="width:15%">Note</th>
             <th style="width:10%;text-align:right">Unit Price</th>
             <th style="width:10%;text-align:right">Line Total</th>
-            ${itemsLocked?'':`<th style="width:8%;text-align:center">Del</th>`}
+            ${delColHdr}
           </tr></thead>
           <tbody>${itemRows}</tbody>
         </table>
@@ -3529,7 +3546,12 @@ function toast(msg,type='ok') {
 // ─────────────────────────────────────────────────────────────────────────────
 (async()=>{
   showLoading('Connecting…');
-  const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email').focus(); }, 5000);
+  const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email')?.focus(); }, 8000);
+  if (!sb || window.__sbLoadFailed) {
+    clearTimeout(fallback);
+    showBootError('Could not load the database library. Check your internet connection or ad blocker, then refresh.');
+    return;
+  }
   try {
     // Load branding early so login screen shows correct logo
     const {data:brandData} = await sb.from('settings').select('*').in('key',['brand_name1','brand_name2','brand_logo']);
@@ -3553,7 +3575,8 @@ function toast(msg,type='ok') {
           const {data:profile} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
           currentUser = {...session.user, profile};
           role = profile?.role||'field';
-          await boot();
+          try { await boot(); } catch (e) { console.error('Boot error:', e); showBootError('Failed to load app data. Refresh and try again.'); clearTimeout(fallback); return; }
+          clearTimeout(fallback);
           // Clear hash from URL
           history.replaceState(null,'',window.location.pathname);
           // Show change password modal immediately
@@ -3577,17 +3600,25 @@ function toast(msg,type='ok') {
           document.getElementById('g-err').textContent = 'This account has been locked. Contact your admin.';
           return;
         }
-        clearTimeout(fallback);
         currentUser={...session.user,profile};
         role=profile.role;
-        await boot();
+        try {
+          await boot();
+        } catch (e) {
+          console.error('Boot error:', e);
+          showBootError('Failed to load app data. Refresh the page or try again in a moment.');
+        }
+        clearTimeout(fallback);
         return;
       }
     }
-  } catch(e) { console.error('Init error:',e); }
+  } catch(e) {
+    console.error('Init error:',e);
+    showBootError('Connection failed. Check your network and refresh.');
+  }
   clearTimeout(fallback);
   hideLoading();
-  setTimeout(()=>document.getElementById('g-email').focus(),80);
+  setTimeout(()=>document.getElementById('g-email')?.focus(),80);
 })();
 </script>
 </body>
