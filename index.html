@@ -720,14 +720,14 @@ async function adminApi(action, payload = {}) {
   const { data, error } = await sb.functions.invoke('admin-users', {
     body: { action, ...payload },
   });
+  if (data?.error) throw new Error(data.error);
   if (error) {
     const msg = error.message || String(error);
     if (/failed to fetch|failed to send|network|edge function/i.test(msg)) {
-      throw new Error('Admin API not reachable. Deploy the admin-users Edge Function in Supabase (Edge Functions), or use Dashboard → Edge Functions → Create "admin-users".');
+      throw new Error('Admin API not reachable. Deploy the admin-users Edge Function in Supabase (Edge Functions).');
     }
     throw new Error(msg);
   }
-  if (data?.error) throw new Error(data.error);
   return data;
 }
 
@@ -1765,16 +1765,17 @@ async function saveNewUser() {
 }
 
 async function deleteUser(id, name) {
-  if (!confirm('Permanently delete "' + name + '"? This removes login and profile.')) return;
+  if (!confirm('Permanently delete "' + name + '"? This removes their login from Supabase completely.')) return;
   showLoading('Deleting account…');
   try {
     await adminApi('delete', { userId: id });
-    hideLoading(); renderUsers(); toast('Account removed: ' + name, 'ok');
-  } catch (e) {
-    const { error } = await sb.from('profiles').delete().eq('id', id);
     hideLoading();
-    if (error) { toast(error.message, 'err'); return; }
-    renderUsers(); toast('Profile removed (deploy Edge Function to delete auth user)', 'info');
+    renderUsers();
+    toast('Account removed from app and Supabase: ' + name, 'ok');
+  } catch (e) {
+    hideLoading();
+    toast(e.message || 'Delete failed', 'err');
+    renderUsers();
   }
 }
 
