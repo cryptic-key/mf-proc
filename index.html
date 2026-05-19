@@ -6,7 +6,7 @@
 <title>Mayfair Electric — Procurement</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js" onerror="window.__sbLoadFailed=true"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js" onerror="window.__sbLoadFailed=true"></script>
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -587,11 +587,6 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
     }
   };
   window.__mfLoaderTimeout = setTimeout(window.__mfDismissLoader, 6000);
-  window.addEventListener('error', function () {
-    window.__mfDismissLoader();
-    var err = document.getElementById('g-err');
-    if (err && !err.textContent) err.textContent = 'App failed to load. Hard-refresh (Ctrl+Shift+R) or try another browser.';
-  });
 })();
 </script>
 
@@ -1092,7 +1087,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.5.4';
+const APP_VERSION = '1.5.5';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -2587,7 +2582,7 @@ async function editItemQtyBtn(inp) {
   if(req&&isPostPOSentStatus(req.status)) return;
   await sb.from('request_items').update({qty:parseFloat(inp.value)||0}).eq('id',itemid);
   await loadRequests();
-  const req=D.requests.find(r=>r.id===reqid); if(req) renderDetail(req);
+  const fresh=D.requests.find(r=>r.id===reqid); if(fresh) renderDetail(fresh);
 }
 
 async function editItemSupBtn(sel) {
@@ -2596,8 +2591,8 @@ async function editItemSupBtn(sel) {
   if(req&&isPostPOSentStatus(req.status)) return;
   await sb.from('request_items').update({assigned_supplier_id:sel.value}).eq('id',itemid);
   await loadRequests();
-  const req=D.requests.find(r=>r.id===reqid);
-  setTimeout(()=>{if(req) renderDetail(req);},0);
+  const fresh=D.requests.find(r=>r.id===reqid);
+  setTimeout(()=>{if(fresh) renderDetail(fresh);},0);
 }
 
 async function removeItem(reqId, itemId) {
@@ -2605,7 +2600,7 @@ async function removeItem(reqId, itemId) {
   if(req&&isPostPOSentStatus(req.status)) return;
   await sb.from('request_items').delete().eq('id',itemId);
   await loadRequests();
-  const req=D.requests.find(r=>r.id===reqId); if(req) renderDetail(req);
+  const fresh=D.requests.find(r=>r.id===reqId); if(fresh) renderDetail(fresh);
 }
 
 async function pauseReq(id) {
