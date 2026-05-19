@@ -1145,7 +1145,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.8.1';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1677,7 +1677,13 @@ function normalizePOState(raw) {
   return raw;
 }
 
-function getReqPOState(req) { return normalizePOState(req?.po_state); }
+function getReqPOState(req) {
+  if (!req) return {};
+  if (!req.po_state || typeof req.po_state === 'string') {
+    req.po_state = normalizePOState(req.po_state);
+  }
+  return req.po_state;
+}
 
 function normalizePORemarks(val) {
   const s = (val || '').trim();
@@ -1721,7 +1727,7 @@ async function applyMarkPOPaid() {
   const ctx = _poPaidConfirm;
   _poPaidConfirm = null;
   closeModal('m-po-paid-confirm');
-  if (ctx?.reqId) await setPOPayStatus(ctx.reqId, ctx.sid, 'paid');
+  if (ctx?.reqId && ctx.supId) await setPOPayStatus(ctx.reqId, ctx.supId, 'paid');
 }
 
 function openPOIssueDialog(reqId, supId) {
@@ -1736,9 +1742,12 @@ async function appendPOIssueRemark(reqId, supId, issueText) {
   const text = (issueText || '').trim();
   if (!text) { toast('Please describe the issue', 'err'); return false; }
   const req = D.requests.find(r => r.id === reqId);
-  if (!req) return false;
+  if (!req || !supId) return false;
   const state = getReqPOState(req);
-  if (!state[supId]) state[supId] = {};
+  if (!state[supId]?.sent) {
+    toast('PO is not in the archive yet', 'err');
+    return false;
+  }
   const existing = normalizePORemarks(state[supId].remarks);
   const stamp = new Date().toLocaleString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const block = '[Issue ' + stamp + ']\n' + text;
@@ -1754,7 +1763,7 @@ async function submitPOIssueDialog() {
   const ctx = _poIssueDialog;
   if (!ctx) return;
   const text = document.getElementById('po-issue-text')?.value || '';
-  if (!(await appendPOIssueRemark(ctx.reqId, ctx.sid, text))) return;
+  if (!(await appendPOIssueRemark(ctx.reqId, ctx.supId, text))) return;
   _poIssueDialog = null;
   closeModal('m-po-issue');
   toast('Issue flagged and added to remarks', 'ok');
@@ -2326,18 +2335,18 @@ async function setPOPayStatus(reqId, supId, payStatus) {
     return;
   }
   const req = D.requests.find(r => r.id === reqId);
-  if (!req) return;
+  if (!req || !supId) return;
   const state = getReqPOState(req);
-  if (!state[supId]?.sent) {
+  const entry = state[supId];
+  if (!entry?.sent) {
     toast('PO is not in the archive yet', 'err');
     return;
   }
-  if (!state[supId]) state[supId] = {};
-  state[supId].pay_status = normalizePOPayStatus(payStatus);
+  entry.pay_status = normalizePOPayStatus(payStatus);
   if (!(await persistPOState(reqId, state))) return;
   renderPOSentList();
   if (_activePOSentKey === poSentKey(reqId, supId)) openPOSent(reqId, supId, true);
-  toast('Payment status: ' + poPayStatusLabel(state[supId].pay_status), 'ok');
+  toast('Payment status: ' + poPayStatusLabel(entry.pay_status), 'ok');
 }
 
 function poAccountingPayBar(reqId, supId, current) {
