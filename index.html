@@ -736,6 +736,8 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
         <label class="form-label">Role</label>
         <select class="form-select" id="nu-role">
           <option value="field">Field Worker</option>
+          <option value="warehouse">Warehouse</option>
+          <option value="accounting">Accounting</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -964,7 +966,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
           <button class="admin-tab active" onclick="switchAdminTab('products')"><i class="fa-solid fa-box"></i> Products</button>
           <button class="admin-tab" onclick="switchAdminTab('suppliers')"><i class="fa-solid fa-truck"></i> Suppliers</button>
           <button class="admin-tab" onclick="switchAdminTab('jobs')"><i class="fa-solid fa-briefcase"></i> Jobs</button>
-          <button class="admin-tab" onclick="switchAdminTab('settings')"><i class="fa-solid fa-sliders"></i> Settings</button>
+          <button class="admin-tab" id="admin-tab-settings" onclick="switchAdminTab('settings')"><i class="fa-solid fa-sliders"></i> Settings</button>
         </div>
 
         <div class="asec active" id="asec-products">
@@ -1091,7 +1093,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.5.6';
+const APP_VERSION = '1.6.1';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1176,6 +1178,89 @@ let D_profilesMap = {};
 let fieldJobId = null;
 let currentUser = null;
 let role = null;
+const VALID_ROLES = ['admin', 'field', 'warehouse', 'accounting'];
+const ROLE_LABELS = { admin: 'Admin', field: 'Field', warehouse: 'Warehouse', accounting: 'Accounting' };
+
+function normalizeRole(r) {
+  const x = (r || 'field').toLowerCase();
+  return VALID_ROLES.includes(x) ? x : 'field';
+}
+
+function roleCfg(r) {
+  r = normalizeRole(r ?? role);
+  const none = {
+    label: ROLE_LABELS[r] || r,
+    ownRequestsOnly: false,
+    canManageRequests: false,
+    canUseFieldRequest: false,
+    canViewPoArchive: false,
+    canAccessCatalogPanel: false,
+    canAccessSettings: false,
+    fieldJobRequired: false,
+    defaultView: 'requests',
+  };
+  if (r === 'admin') return { ...none, label: 'Admin', canManageRequests: true, canUseFieldRequest: true, canViewPoArchive: true, canAccessCatalogPanel: true, canAccessSettings: true, defaultView: 'requests' };
+  if (r === 'field') return { ...none, label: 'Field', ownRequestsOnly: true, canUseFieldRequest: true, fieldJobRequired: true, defaultView: 'field' };
+  if (r === 'warehouse') return { ...none, label: 'Warehouse', canManageRequests: true, canUseFieldRequest: true, canViewPoArchive: true, canAccessCatalogPanel: true, fieldJobRequired: true, defaultView: 'requests' };
+  if (r === 'accounting') return { ...none, label: 'Accounting', canViewPoArchive: true, defaultView: 'po-sent' };
+  return { ...none, ownRequestsOnly: true, canUseFieldRequest: true, fieldJobRequired: true, defaultView: 'field' };
+}
+
+function usesStaffTabs() { return role !== 'field'; }
+
+function canAccessView(name) {
+  const c = roleCfg();
+  if (name === 'field') return c.canUseFieldRequest;
+  if (name === 'requests') return role === 'field' || c.canManageRequests;
+  if (name === 'po-sent') return c.canViewPoArchive;
+  if (name === 'panel') return c.canAccessCatalogPanel || c.canAccessSettings;
+  return false;
+}
+
+function fieldJobPickRequired() { return roleCfg().fieldJobRequired; }
+
+function roleSelectHtml(selected) {
+  return [
+    ['field', 'Field Worker'],
+    ['warehouse', 'Warehouse'],
+    ['accounting', 'Accounting'],
+    ['admin', 'Admin'],
+  ].map(([v, label]) => '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + label + '</option>').join('');
+}
+
+function roleBadgeClass(r) {
+  if (r === 'admin') return 'badge-amber';
+  if (r === 'warehouse') return 'badge-blue';
+  if (r === 'accounting') return 'badge-gray';
+  return 'badge-green';
+}
+
+function applyRoleUI() {
+  role = normalizeRole(role);
+  const c = roleCfg();
+  const name = currentUser?.profile?.username || currentUser?.email || 'User';
+  document.getElementById('user-label').textContent = c.label + ' (' + name + ')';
+  document.getElementById('field-tabs').style.display = role === 'field' ? 'flex' : 'none';
+  const staffTabs = document.getElementById('admin-tabs');
+  staffTabs.style.display = usesStaffTabs() ? 'flex' : 'none';
+  const showTab = (id, on) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? '' : 'none';
+  };
+  if (usesStaffTabs()) {
+    showTab('tab-field-admin', c.canUseFieldRequest);
+    showTab('tab-requests', c.canManageRequests);
+    showTab('tab-po-sent', c.canViewPoArchive);
+    showTab('tab-panel', c.canAccessCatalogPanel || c.canAccessSettings);
+    const settingsTab = document.getElementById('admin-tab-settings');
+    if (settingsTab) settingsTab.style.display = c.canAccessSettings ? '' : 'none';
+  }
+}
+
+function isProtectedAdminUser(u) {
+  return u && normalizeRole(u.role) === 'admin';
+}
+
 let fqty = {};
 let fieldSecFilter = null;
 let activeReq = null;
@@ -1228,7 +1313,7 @@ async function gateLogin() {
     return;
   }
   currentUser = { ...data.user, profile };
-  role = profile?.role || 'field';
+  role = normalizeRole(profile?.role || 'field');
   await boot();
 }
 
@@ -1287,15 +1372,16 @@ async function boot() {
     await loadAllData();
     document.getElementById('gate').classList.add('hidden');
     document.getElementById('app').style.display = 'flex';
-    const name = currentUser?.profile?.username || currentUser?.email || 'User';
-    document.getElementById('user-label').textContent = role === 'admin' ? `Admin (${name})` : name;
-    document.getElementById('field-tabs').style.display = role === 'field' ? 'flex' : 'none';
-    document.getElementById('admin-tabs').style.display = role === 'admin' ? 'flex' : 'none';
+    role = normalizeRole(role);
+    applyRoleUI();
     document.getElementById('search-area').style.display = 'none';
     applyBranding();
     setupFieldProjectInput();
-    if (role === 'field') { renderField(); switchView('field'); updateBadge(); }
-    else { renderReqList(); switchView('requests'); updateBadge(); }
+    const c = roleCfg();
+    if (c.defaultView === 'field') { renderField(); switchView('field'); }
+    else if (c.defaultView === 'po-sent') { switchView('po-sent'); }
+    else { renderReqList(); switchView('requests'); }
+    updateBadge();
     toast('Signed in', 'info');
     sb.channel('requests').on('postgres_changes', { event:'*', schema:'public', table:'requests' }, () => {
       loadRequests().then(() => { renderReqList(); renderPOSentList(); updateBadge(); if(activeReq){ const r=D.requests.find(x=>x.id===activeReq); if(r) renderDetail(r); } });
@@ -1342,7 +1428,7 @@ async function loadJobs() {
 
 async function loadRequests() {
   let reqQuery = sb.from('requests').select('*').order('submitted_at', { ascending: false });
-  if (role === 'field' && currentUser?.id) reqQuery = reqQuery.eq('submitted_by', currentUser.id);
+  if (roleCfg().ownRequestsOnly && currentUser?.id) reqQuery = reqQuery.eq('submitted_by', currentUser.id);
   const { data: reqs } = await reqQuery;
   const reqIds = (reqs || []).map(r => r.id);
   let items = [];
@@ -1393,7 +1479,7 @@ function isPostPOSentStatus(status) {
 }
 
 function visibleRequests() {
-  if (role === 'field' && currentUser?.id)
+  if (roleCfg().ownRequestsOnly && currentUser?.id)
     return D.requests.filter(r => r.submitted_by === currentUser.id);
   return D.requests;
 }
@@ -1501,26 +1587,42 @@ function bestP(prod) {
 // VIEWS
 // ─────────────────────────────────────────────────────────────────────────────
 function switchView(name) {
+  if (!canAccessView(name)) {
+    switchView(roleCfg().defaultView);
+    return;
+  }
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
   document.querySelectorAll('.ttab').forEach(t=>t.classList.remove('active'));
   let t = document.getElementById('tab-'+name);
   if (!t && name === 'requests' && role === 'field') t = document.getElementById('tab-requests-field');
-  if (!t && name === 'field' && role === 'admin') t = document.getElementById('tab-field-admin');
+  if (!t && name === 'field' && usesStaffTabs() && roleCfg().canUseFieldRequest) t = document.getElementById('tab-field-admin');
   if (!t && name === 'field' && role === 'field') t = document.getElementById('tab-field');
+  if (!t && name === 'requests' && roleCfg().canManageRequests) t = document.getElementById('tab-requests');
+  if (!t && name === 'po-sent') t = document.getElementById('tab-po-sent');
+  if (!t && name === 'panel') t = document.getElementById('tab-panel');
   if (t) t.classList.add('active');
   document.getElementById('search-area').style.display = name==='field' ? 'block' : 'none';
   if (name==='requests') { renderReqList(); updateBadge(); }
   if (name==='po-sent') renderPOSentList();
   if (name==='field') { setupFieldProjectInput(); renderField(); }
   if (name==='panel') {
-    renderProducts(); renderSuppliers(); renderUsers();
-    document.getElementById('hst-inp').value = D.settings.hst || 13;
-    applyBranding();
+    renderProducts(); renderSuppliers();
+    if (roleCfg().canAccessSettings) {
+      renderUsers();
+      document.getElementById('hst-inp').value = D.settings.hst || 13;
+      applyBranding();
+    } else {
+      switchAdminTab('products');
+    }
   }
 }
 
 function switchAdminTab(t) {
+  if (t === 'settings' && !roleCfg().canAccessSettings) {
+    switchAdminTab('products');
+    return;
+  }
   const tabs = ['products','suppliers','jobs','settings'];
   document.querySelectorAll('.admin-tab').forEach((el,i)=>el.classList.toggle('active', tabs[i]===t));
   document.querySelectorAll('.asec').forEach(el=>el.classList.remove('active'));
@@ -1623,7 +1725,7 @@ function clearField() { fqty={}; renderField(); }
 function openSubmit() {
   const lines=Object.keys(fqty).filter(k=>fqty[k]>0);
   if(!lines.length) { toast('Add at least one item first','err'); return; }
-  if(role!=='admin'&&!fieldJobId){ toast('Select a job from the list','err'); return; }
+  if(fieldJobPickRequired()&&!fieldJobId){ toast('Select a job from the list','err'); return; }
   const proj=document.getElementById('f-project').value;
   const dt=document.getElementById('f-date').value;
   const notes=document.getElementById('f-notes').value;
@@ -1638,7 +1740,7 @@ async function confirmSubmit() {
   let project=document.getElementById('sub-project').value.trim();
   const dateNeeded=document.getElementById('sub-date').value;
   const notes=document.getElementById('sub-notes').value.trim();
-  if(role!=='admin'){
+  if(fieldJobPickRequired()){
     if(!fieldJobId){ toast('Select a job from the list','err'); return; }
     const job=D.jobs.find(j=>j.id===fieldJobId);
     if(job) project=job.name;
@@ -2134,7 +2236,9 @@ function buildJobsiteAuditHTML(jobName, audit) {
     + '<th style="width:18%;text-align:right">Unit price</th><th style="width:20%;text-align:right">Line total</th></tr></thead><tbody>'
     + (tbody || '<tr><td colspan="4">No line items</td></tr>')
     + '</tbody></table>'
-    + '<div class="po-totals-wrap"><div class="po-remarks-wrap"><label>Remarks</label><textarea id="jobsite-audit-remarks-inp" class="po-remarks-inp" data-job="' + encodeURIComponent(jobName) + '" onblur="saveJobsiteAuditRemarks(this)">' + escHtml(remarks) + '</textarea></div><div class="po-tots">'
+    + '<div class="po-totals-wrap"><div class="po-remarks-wrap"><label>Remarks</label>' + (roleCfg().canManageRequests
+      ? '<textarea id="jobsite-audit-remarks-inp" class="po-remarks-inp" data-job="' + encodeURIComponent(jobName) + '" onblur="saveJobsiteAuditRemarks(this)">' + escHtml(remarks) + '</textarea>'
+      : '<div class="po-remarks-inp" style="min-height:48px;white-space:pre-wrap">' + escHtml(remarks || '—') + '</div>')</div><div class="po-tots">'
     + '<div class="po-tot-row"><span>Subtotal</span><span>$' + fmt(audit.sub) + '</span></div>'
     + '<div class="po-tot-row"><span>HST (' + hstPct + '%)</span><span>$' + fmt(tax) + '</span></div>'
     + '<div class="po-tot-grand"><span>Grand total</span><span>$' + fmt(total) + '</span></div>'
@@ -2216,12 +2320,14 @@ function openPOSent(reqId, supId, skipList) {
   activePOSup = supId;
   activeReq = reqId;
   const bySup = buildBySup(req);
+  const openReqBtn = roleCfg().canManageRequests
+    ? ' · <button class="btn" style="padding:3px 8px;font-size:11px;margin-left:6px" onclick="switchView(\'requests\');openReq(\'' + reqId + '\')">Open request</button>'
+    : '';
   detailEl.innerHTML = `
     <div style="margin-bottom:12px">
       <div style="font-size:15px;font-weight:600">${escHtml(req.project)}</div>
       <div style="font-size:12px;color:var(--text3);margin-top:4px">
-        ${escHtml(getSupName(supId))} · Submitted by ${escHtml(getSubmitterName(req))}
-        · <button class="btn" style="padding:3px 8px;font-size:11px;margin-left:6px" onclick="switchView('requests');openReq('${reqId}')">Open request</button>
+        ${escHtml(getSupName(supId))} · Submitted by ${escHtml(getSubmitterName(req))}${openReqBtn}
       </div>
     </div>
     ${buildPOHTML(req, bySup[supId], getSupName(supId), supId, true)}`;
@@ -2231,12 +2337,14 @@ function openPOSent(reqId, supId, skipList) {
 // ADMIN — REQUESTS
 // ─────────────────────────────────────────────────────────────────────────────
 function updateBadge() {
-  if (role === 'field') {
+  const c = roleCfg();
+  if (c.ownRequestsOnly) {
     const n = visibleRequests().filter(r => r.status === 'pending').length;
     const b = document.getElementById('field-req-badge');
     if (b) { b.textContent = n; b.style.display = n ? 'inline' : 'none'; }
     return;
   }
+  if (!c.canManageRequests) return;
   const n = D.requests.filter(r => r.status === 'pending').length;
   const b = document.getElementById('req-badge');
   if (b) { b.textContent = n; b.style.display = n ? 'inline' : 'none'; }
@@ -3335,14 +3443,21 @@ async function renderUsers() {
     const locked = !!u.locked;
     const email = u.email || (isMe ? currentUser?.email : '') || '—';
     const name = escHtml(u.username || '—');
+    const protectedAdmin = isProtectedAdminUser(u);
+    const roleCell = (isMe || protectedAdmin)
+      ? '<span class="badge '+roleBadgeClass(u.role)+'">'+escHtml(ROLE_LABELS[u.role]||u.role)+'</span>'
+      : '<select class="form-select" style="padding:4px 8px;font-size:11px;min-width:120px" onchange="changeUserRole(\''+u.id+'\', this.value)">'+roleSelectHtml(u.role)+'</select>';
+    const deleteBtn = (!isMe && !protectedAdmin)
+      ? '<button class="btn btn-red" onclick="deleteUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\')"><i class="fa-solid fa-trash"></i></button>'
+      : '';
     return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.02)'}${locked?';opacity:.55':''}">
       <td style="padding:8px 12px">
         <div style="font-weight:500">${name}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px">${escHtml(email)}</div>
       </td>
-      <td style="padding:8px 12px">${isMe ? '<span class="badge '+(u.role==='admin'?'badge-amber':'badge-green')+'">'+u.role+'</span>' : '<select class="form-select" style="padding:4px 8px;font-size:11px;min-width:88px" onchange="changeUserRole(\''+u.id+'\', this.value)"><option value="field"'+(u.role==='field'?' selected':'')+'>field</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>admin</option></select>'}</td>
+      <td style="padding:8px 12px">${roleCell}</td>
       <td style="padding:8px 12px">${locked?'<span class="badge badge-red">Locked</span>':'<span class="badge badge-green">Active</span>'}</td>
-      <td style="padding:6px 12px"><div class="user-actions"><button class="btn" onclick="openUserDetail('${u.id}')"><i class="fa-solid fa-circle-info"></i></button><button class="btn btn-amber" onclick="sendUserPasswordResetById('${u.id}')"><i class="fa-solid fa-envelope"></i></button>${!isMe?'<button class="btn '+(locked?'btn-green':'btn-amber')+'" onclick="toggleLockUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\','+locked+')"><i class="fa-solid fa-'+(locked?'lock-open':'lock')+'"></i></button><button class="btn btn-red" onclick="deleteUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\')"><i class="fa-solid fa-trash"></i></button>':''}</div></td>
+      <td style="padding:6px 12px"><div class="user-actions"><button class="btn" onclick="openUserDetail('${u.id}')"><i class="fa-solid fa-circle-info"></i></button><button class="btn btn-amber" onclick="sendUserPasswordResetById('${u.id}')"><i class="fa-solid fa-envelope"></i></button>${!isMe?'<button class="btn '+(locked?'btn-green':'btn-amber')+'" onclick="toggleLockUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\','+locked+')"><i class="fa-solid fa-'+(locked?'lock-open':'lock')+'"></i></button>'+deleteBtn:''}</div></td>
     </tr>`;
   }).join('');
 }
@@ -3405,6 +3520,11 @@ async function setUserPasswordFromDetail() {
 async function changeUserRole(userId, newRole) {
   const u = _adminUsersCache.find(x => x.id === userId);
   if (!u || u.role === newRole) return;
+  if (isProtectedAdminUser(u)) {
+    toast('Admin role can only be changed in Supabase', 'err');
+    renderUsers();
+    return;
+  }
   if (!confirm('Change role for "' + (u.username || u.email) + '" to ' + newRole + '?')) { renderUsers(); return; }
   showLoading('Updating role…');
   try {
@@ -3412,6 +3532,7 @@ async function changeUserRole(userId, newRole) {
     hideLoading(); renderUsers(); toast('Role updated', 'ok');
   } catch (e) {
     hideLoading();
+    if (isProtectedAdminUser(u)) { toast('Admin role can only be changed in Supabase', 'err'); renderUsers(); return; }
     const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
     if (error) { toast(e.message, 'err'); renderUsers(); return; }
     renderUsers(); toast('Role updated', 'ok');
@@ -3471,6 +3592,11 @@ async function saveNewUser() {
 }
 
 async function deleteUser(id, name) {
+  const u = _adminUsersCache.find(x => x.id === id);
+  if (isProtectedAdminUser(u)) {
+    toast('Admin accounts can only be removed in Supabase', 'err');
+    return;
+  }
   if (!confirm('Permanently delete "' + name + '"? This removes their login from Supabase completely.')) return;
   showLoading('Deleting account…');
   try {
@@ -3656,7 +3782,7 @@ async function startApp() {
         if(session?.user) {
           const {data:profile} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
           currentUser = {...session.user, profile};
-          role = profile?.role||'field';
+          role = normalizeRole(profile?.role||'field');
           try { await boot(); } catch (e) { console.error('Boot error:', e); showBootError('Failed to load app data. Refresh and try again.'); clearTimeout(fallback); return; }
           clearTimeout(fallback);
           // Clear hash from URL
@@ -3683,7 +3809,7 @@ async function startApp() {
           return;
         }
         currentUser={...session.user,profile};
-        role=profile.role;
+        role=normalizeRole(profile.role);
         try {
           await boot();
         } catch (e) {
