@@ -976,7 +976,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
               <option value="paused">Paused</option>
               <option value="completed">Order sent to suppliers</option>
               <option value="partially_received">Order partially received</option>
-              <option value="received">Received</option>
+              <option value="received">Material Recieved on Site</option>
             </select>
           </div>
           <div id="req-list-items"></div>
@@ -1145,7 +1145,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.8.2';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1815,7 +1815,7 @@ function statusLabel(status) {
   if (status === 'paused') return 'Paused';
   if (status === 'completed') return 'Order sent to suppliers';
   if (status === 'partially_received') return 'Order partially received';
-  if (status === 'received') return 'Received';
+  if (status === 'received') return 'Material Recieved on Site';
   return status || 'Unknown';
 }
 
