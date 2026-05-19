@@ -322,7 +322,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
     <div class="gate-footer">Mayfair Electric Ltd. &nbsp;·&nbsp; Internal use only</div>
   </div>
 </div>
-<div style="position:fixed;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,.15);pointer-events:none;z-index:1;font-family:'IBM Plex Mono',monospace">v1.0.0</div>
+<div id="app-version" style="position:fixed;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,.15);pointer-events:none;z-index:1;font-family:'IBM Plex Mono',monospace"></div>
 
 <!-- MODALS -->
 <div class="overlay" id="m-submit">
@@ -625,6 +625,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
                 <button class="btn" onclick="openAddSection()"><i class="fa-solid fa-folder-plus"></i> Add Section</button>
                 <button class="btn btn-green" onclick="openAddProduct()"><i class="fa-solid fa-plus"></i> Add Product</button>
               </div>
+            </div>
             <div style="overflow-x:auto">
               <table class="prod-tbl" id="prod-tbl">
                 <thead id="prod-thead"></thead>
@@ -720,6 +721,9 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 </div>
 
 <script>
+// Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
+const APP_VERSION = '1.1.0';
+
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
 const _sc = (window.supabase || window.Supabase);
@@ -727,6 +731,11 @@ const sb = _sc.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_FN = 'swift-handler'; // must match Supabase Edge Functions name exactly
 let _adminUsersCache = [];
 let _detailUserId = null;
+
+(function applyAppVersion() {
+  const el = document.getElementById('app-version');
+  if (el) el.textContent = 'v' + APP_VERSION;
+})();
 
 async function adminApi(action, payload = {}) {
   const { data: { session } } = await sb.auth.getSession();
