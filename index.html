@@ -801,7 +801,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.2';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1463,6 +1463,20 @@ async function savePORemarks(reqId, supId) {
   await savePOMetaFromUI(reqId, supId);
 }
 
+function allPOsSent(req) {
+  const bySup = buildBySup(req);
+  const keys = Object.keys(bySup);
+  if (!keys.length) return false;
+  const state = getReqPOState(req);
+  return keys.every(sid => state[sid]?.sent);
+}
+
+function canManualRecomplete(req) {
+  if (!req || req.status !== 'approved') return false;
+  const state = getReqPOState(req);
+  return !!state.__reopened || allPOsSent(req);
+}
+
 async function maybeAutoCompleteRequest(reqId) {
   const req = D.requests.find(r => r.id === reqId);
   if (!req || req.status === 'completed') return;
@@ -1596,7 +1610,9 @@ function renderReqList() {
             : ''}
         ${r.status==='completed'
           ? `<button class="btn btn-amber" style="padding:3px 7px;font-size:10px;width:28px;justify-content:center" title="Mark incomplete" onclick="uncompleteReq('${r.id}')"><i class="fa-solid fa-rotate-left"></i></button>`
-          : ''}
+          : canManualRecomplete(r)
+            ? `<button class="btn btn-green" style="padding:3px 7px;font-size:10px;width:28px;justify-content:center" title="Mark complete" onclick="completeReq('${r.id}')"><i class="fa-solid fa-check"></i></button>`
+            : ''}
         <button class="btn btn-red" style="padding:3px 7px;font-size:10px;width:28px;justify-content:center" title="Delete" onclick="deleteReq('${r.id}')"><i class="fa-solid fa-trash"></i></button>
       </div>`;
     return `
@@ -1722,6 +1738,7 @@ function renderDetail(req) {
         ${req.status==='paused'?`<button class="btn btn-green" onclick="resumeReq('${req.id}')"><i class="fa-solid fa-play"></i> Resume Order</button>`:''}
         ${(req.status==='pending'||req.status==='approved')?`<button class="btn btn-amber" onclick="pauseReq('${req.id}')"><i class="fa-solid fa-pause"></i> Pause Order</button>`:''}
         ${req.status==='completed'?`<button class="btn btn-amber" onclick="uncompleteReq('${req.id}')"><i class="fa-solid fa-rotate-left"></i> Mark as Incomplete</button>`:''}
+        ${canManualRecomplete(req)?`<button class="btn btn-green" onclick="completeReq('${req.id}')"><i class="fa-solid fa-circle-check"></i> Mark as Complete</button>`:''}
         <button class="btn btn-red" onclick="deleteReq('${req.id}')"><i class="fa-solid fa-trash"></i> Delete</button>
       </div>
     </div>
@@ -1817,7 +1834,14 @@ async function pauseReq(id) {
   const req = D.requests.find(r => r.id === id);
   if (!req || req.status === 'paused' || req.status === 'completed') return;
   const paused_from = req.status;
-  await sb.from('requests').update({ status: 'paused', paused_from }).eq('id', id);
+  const { error } = await sb.from('requests').update({ status: 'paused', paused_from }).eq('id', id);
+  if (error) {
+    console.error('pauseReq', error);
+    toast(error.message.includes('check') || error.message.includes('enum')
+      ? 'Database needs update: run migration 20260519000007 in Supabase SQL Editor'
+      : (error.message || 'Could not pause order'), 'err');
+    return;
+  }
   await loadRequests(); renderReqList();
   const fresh = D.requests.find(r => r.id === id);
   if (fresh) renderDetail(fresh);
@@ -1828,7 +1852,12 @@ async function resumeReq(id) {
   const req = D.requests.find(r => r.id === id);
   if (!req || req.status !== 'paused') return;
   const newStatus = req.paused_from || (req.approved_at ? 'approved' : 'pending');
-  await sb.from('requests').update({ status: newStatus, paused_from: null }).eq('id', id);
+  const { error } = await sb.from('requests').update({ status: newStatus, paused_from: null }).eq('id', id);
+  if (error) {
+    console.error('resumeReq', error);
+    toast(error.message || 'Could not resume order', 'err');
+    return;
+  }
   await loadRequests(); renderReqList();
   const fresh = D.requests.find(r => r.id === id);
   if (fresh) renderDetail(fresh);
@@ -1841,14 +1870,32 @@ async function approveReq(id) {
   toast('Order in progress — POs ready','ok');
 }
 async function completeReq(id) {
-  await sb.from('requests').update({status:'completed',completed_at:new Date().toISOString()}).eq('id',id);
-  await loadRequests(); renderReqList(); const req=D.requests.find(r=>r.id===id); if(req) renderDetail(req); updateBadge();
-  toast('Request marked as completed','ok');
+  const req = D.requests.find(r => r.id === id);
+  const state = req ? getReqPOState(req) : {};
+  delete state.__reopened;
+  const { error } = await sb.from('requests').update({
+    status: 'completed', completed_at: new Date().toISOString(), po_state: state
+  }).eq('id', id);
+  if (error) { toast(error.message || 'Could not mark complete', 'err'); return; }
+  await loadRequests(); renderReqList(); renderPOSentList();
+  const fresh = D.requests.find(r => r.id === id);
+  if (fresh) renderDetail(fresh);
+  updateBadge();
+  toast('Request marked as completed', 'ok');
 }
 async function uncompleteReq(id) {
-  await sb.from('requests').update({status:'approved',completed_at:null}).eq('id',id);
-  await loadRequests(); renderReqList(); const req=D.requests.find(r=>r.id===id); if(req) renderDetail(req); updateBadge();
-  toast('Request marked as incomplete','ok');
+  const req = D.requests.find(r => r.id === id);
+  const state = req ? getReqPOState(req) : {};
+  state.__reopened = true;
+  const { error } = await sb.from('requests').update({
+    status: 'approved', completed_at: null, po_state: state
+  }).eq('id', id);
+  if (error) { toast(error.message || 'Could not mark incomplete', 'err'); return; }
+  await loadRequests(); renderReqList();
+  const fresh = D.requests.find(r => r.id === id);
+  if (fresh) renderDetail(fresh);
+  updateBadge();
+  toast('Request marked as incomplete — you can mark complete again when ready', 'ok');
 }
 async function deleteReq(id) {
   if(!confirm('Delete this request? This cannot be undone.')) return;
