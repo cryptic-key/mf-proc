@@ -217,7 +217,19 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .job-result{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px}
 .job-result:hover{background:var(--blue-lt)}
 .po-sent-layout{display:flex;flex:1;overflow:hidden}
-.po-sent-list{width:340px;border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.po-sent-sidebar{width:360px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;background:var(--card)}
+.po-sent-filter{padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.po-sent-filter .form-label{margin-bottom:6px;font-size:10px}
+.po-sent-filter select{width:100%;font-size:12px}
+.po-sent-scroll{flex:1;overflow-y:auto}
+.po-sent-job-hdr{padding:14px 16px 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold,#c9a227)}
+.po-sent-job-hdr:first-child{padding-top:10px}
+.po-sent-divider{height:1px;background:var(--border2);margin:0 16px 8px}
+.po-sent-item{padding:10px 16px 12px;cursor:pointer;border-left:3px solid transparent;transition:background .12s}
+.po-sent-item:hover{background:rgba(255,255,255,.04)}
+.po-sent-item.active{border-left-color:var(--blue);background:var(--blue-lt)}
+.po-sent-po-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.35}
+.po-sent-po-sub{font-size:11px;color:var(--text3);margin-top:5px;font-weight:500;letter-spacing:.02em}
 .po-sent-detail{flex:1;overflow-y:auto;padding:16px 20px}
 .po-tots{width:220px;font-size:12px}
 .po-tot-row{display:flex;justify-content:space-between;padding:4px 0;color:#555;border-bottom:1px solid #eee}
@@ -531,6 +543,16 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 </div>
 
 <!-- PO NUMBER PROMPT -->
+<div class="overlay" id="m-po-print">
+  <div class="modal">
+    <div class="modal-title"><i class="fa-solid fa-print" style="color:var(--blue2);margin-right:8px"></i>Print purchase order</div>
+    <div class="modal-sub">Would you like to mark this PO as sent?</div>
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
+      <button class="btn" onclick="confirmPOPrint(false)"><i class="fa-solid fa-print"></i> Print only</button>
+      <button class="btn btn-green" onclick="confirmPOPrint(true)"><i class="fa-solid fa-paper-plane"></i> Mark as sent &amp; print</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="m-po-number">
   <div class="modal">
     <div class="modal-title"><i class="fa-solid fa-hashtag" style="color:var(--red);margin-right:8px"></i>Enter PO Number</div>
@@ -654,7 +676,15 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
     <!-- PO SENT -->
     <div class="view" id="view-po-sent">
       <div class="po-sent-layout">
-        <div class="po-sent-list" id="po-sent-list"></div>
+        <div class="po-sent-sidebar">
+          <div class="po-sent-filter">
+            <label class="form-label" for="po-sent-job-filter">Filter by job</label>
+            <select class="form-inp" id="po-sent-job-filter" onchange="onPOSentJobFilter(this.value)">
+              <option value="">All jobs</option>
+            </select>
+          </div>
+          <div class="po-sent-scroll" id="po-sent-list"></div>
+        </div>
         <div class="po-sent-detail" id="po-sent-detail">
           <div class="empty-state"><i class="fa-solid fa-paper-plane"></i><p>Select a sent PO to review.</p></div>
         </div>
@@ -801,7 +831,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.3.4';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1524,33 +1554,82 @@ function listSentPOs() {
 }
 
 let _activePOSentKey = null;
+let _poSentJobFilter = '';
+
+function getJobNameForReq(req) {
+  if (req?.job_id) {
+    const j = D.jobs.find(x => x.id === req.job_id);
+    if (j?.name) return j.name;
+  }
+  return (req?.project || 'Unassigned').trim() || 'Unassigned';
+}
+
+function formatPOSentAt(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const time = d.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  return `${date}, ${time}`;
+}
+
+function onPOSentJobFilter(val) {
+  _poSentJobFilter = val ? decodeURIComponent(val) : '';
+  renderPOSentList();
+}
+
+function refreshPOSentJobFilterOptions(allRows) {
+  const filterEl = document.getElementById('po-sent-job-filter');
+  if (!filterEl) return;
+  const jobNames = [...new Set(allRows.map(r => getJobNameForReq(r.req)))].sort((a, b) => a.localeCompare(b));
+  const cur = _poSentJobFilter;
+  filterEl.innerHTML = '<option value="">All jobs</option>' + jobNames.map(j =>
+    `<option value="${encodeURIComponent(j)}"${j === cur ? ' selected' : ''}>${escHtml(j)}</option>`
+  ).join('');
+}
 
 function renderPOSentList() {
   const listEl = document.getElementById('po-sent-list');
   const detailEl = document.getElementById('po-sent-detail');
   if (!listEl) return;
-  const rows = listSentPOs();
+  const allRows = listSentPOs();
+  refreshPOSentJobFilterOptions(allRows);
+  let rows = allRows;
+  if (_poSentJobFilter) rows = rows.filter(r => getJobNameForReq(r.req) === _poSentJobFilter);
   if (!rows.length) {
-    listEl.innerHTML = '<div class="empty-state" style="padding:24px 16px"><i class="fa-solid fa-paper-plane"></i><p>No sent POs yet.</p></div>';
-    if (detailEl) detailEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-paper-plane"></i><p>Mark POs as sent from the Requests screen.</p></div>';
+    const emptyMsg = allRows.length ? 'No sent POs for this job.' : 'No sent POs yet.';
+    listEl.innerHTML = '<div class="empty-state" style="padding:24px 16px"><i class="fa-solid fa-paper-plane"></i><p>' + emptyMsg + '</p></div>';
+    if (detailEl && !allRows.length) {
+      detailEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-paper-plane"></i><p>Mark POs as sent from the Requests screen.</p></div>';
+    }
     return;
   }
-  listEl.innerHTML = rows.map(r => {
-    const key = poSentKey(r.req.id, r.sid);
-    const sentAt = r.po.sent_at ? new Date(r.po.sent_at).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' }) : '';
-    return `<div class="req-item${_activePOSentKey===key?' active':''}" style="padding:12px 16px;cursor:pointer" onclick="openPOSent('${r.req.id}','${r.sid}')">
-      <div class="req-item-project">${escHtml(r.req.project)}</div>
-      <div class="req-item-meta">
-        <span class="badge badge-blue">Sent</span>
-        <span>${escHtml(getSupName(r.sid))}</span>
-        ${r.po.po_number ? `<span>PO# ${escHtml(r.po.po_number)}</span>` : ''}
-        ${sentAt ? `<span>${sentAt}</span>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  const groups = {};
+  rows.forEach(r => {
+    const job = getJobNameForReq(r.req);
+    if (!groups[job]) groups[job] = [];
+    groups[job].push(r);
+  });
+  const sortedJobs = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+  let html = '';
+  sortedJobs.forEach(job => {
+    html += '<div class="po-sent-job-hdr">' + escHtml(job) + '</div><div class="po-sent-divider"></div>';
+    const items = groups[job].sort((a, b) => new Date(b.po.sent_at || 0) - new Date(a.po.sent_at || 0));
+    items.forEach(r => {
+      const key = poSentKey(r.req.id, r.sid);
+      const poNum = (r.po.po_number || '').trim();
+      const sup = escHtml(getSupName(r.sid));
+      const title = poNum ? 'PO # ' + escHtml(poNum) + ' \u2014 ' + sup : 'PO \u2014 ' + sup;
+      const sentLine = 'SENT \u2014 ' + formatPOSentAt(r.po.sent_at);
+      const active = _activePOSentKey === key ? ' active' : '';
+      html += '<div class="po-sent-item' + active + '" onclick="openPOSent(\'' + r.req.id + '\',\'' + r.sid + '\')">';
+      html += '<div class="po-sent-po-title">' + title + '</div>';
+      html += '<div class="po-sent-po-sub">' + sentLine + '</div></div>';
+    });
+  });
+  listEl.innerHTML = html;
   if (_activePOSentKey) {
     const [rid, sid] = _activePOSentKey.split('__');
-    openPOSent(rid, sid, true);
+    if (rows.some(r => r.req.id === rid && r.sid === sid)) openPOSent(rid, sid, true);
   }
 }
 
@@ -2011,10 +2090,29 @@ function buildPOHTML(req, data, supName, supId, readOnly) {
 }
 
 let _poAction=null;
+
+function isCurrentPOSent() {
+  const req = D.requests.find(r => r.id === activeReq);
+  if (!req || !activePOSup) return false;
+  return !!getReqPOState(req)[activePOSup]?.sent;
+}
+
+function showPOPrintDialog() {
+  if (!activeReq || !activePOSup) {
+    toast('Open a purchase order first', 'err');
+    return;
+  }
+  if (isCurrentPOSent()) {
+    window.print();
+    return;
+  }
+  openModal('m-po-print');
+}
+
 function checkPONumberThen() {
   const val=document.getElementById('po-number-inp')?.value.trim()||'';
-  if(val) { window.print(); return; }
-  _poAction='print';
+  if(val) { showPOPrintDialog(); return; }
+  _poAction='print-dialog';
   document.getElementById('po-number-prompt-inp').value='';
   openModal('m-po-number');
   setTimeout(()=>document.getElementById('po-number-prompt-inp').focus(),80);
@@ -2024,13 +2122,26 @@ function applyPONumber() {
   const poInp=document.getElementById('po-number-inp');
   if(val&&poInp) poInp.value=val;
   closeModal('m-po-number');
-  if(_poAction==='print') window.print();
+  if(_poAction==='print-dialog') showPOPrintDialog();
   _poAction=null;
 }
 function skipPONumber() {
   closeModal('m-po-number');
-  if(_poAction==='print') window.print();
+  if(_poAction==='print-dialog') showPOPrintDialog();
   _poAction=null;
+}
+async function confirmPOPrint(markSent) {
+  closeModal('m-po-print');
+  const reqId = activeReq;
+  const supId = activePOSup;
+  if (!reqId || !supId) return;
+  await savePOMetaFromUI(reqId, supId);
+  if (markSent) {
+    await setPOSent(reqId, supId, true);
+    setTimeout(() => window.print(), 150);
+  } else {
+    window.print();
+  }
 }
 function doCopyPO(btn) {
   const doc=document.getElementById('po-print'); if(!doc) return;
