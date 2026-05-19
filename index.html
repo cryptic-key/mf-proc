@@ -790,7 +790,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
         onkeydown="if(event.key==='Enter')doChangePw()">
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('m-change-pw')">Cancel</button>
+      <button type="button" class="btn" id="cp-cancel-btn" onclick="closeModal('m-change-pw')">Cancel</button>
       <button class="btn btn-green" onclick="doChangePw()"><i class="fa-solid fa-check"></i> Update Password</button>
     </div>
   </div>
@@ -1109,7 +1109,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.7.4';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1128,15 +1128,40 @@ function initSupabaseClient() {
 
 let _passwordRecoveryMode = false;
 
-function authRedirectUrl() {
+const PW_RESET_STORAGE_KEY = 'mf_pw_reset_pending';
+
+function authRedirectUrl(forPasswordReset) {
   const u = new URL(window.location.href);
   u.hash = '';
   u.search = '';
+  if (forPasswordReset) u.searchParams.set('pw_reset', '1');
   return u.href;
+}
+
+function markPasswordResetPending(email) {
+  try {
+    sessionStorage.setItem(PW_RESET_STORAGE_KEY, (email || '').trim().toLowerCase());
+  } catch (_) {}
+}
+
+function clearPasswordResetPending() {
+  try { sessionStorage.removeItem(PW_RESET_STORAGE_KEY); } catch (_) {}
+}
+
+function isPasswordRecoveryLanding() {
+  const hash = window.location.hash;
+  const q = new URLSearchParams(window.location.search);
+  if (q.get('pw_reset') === '1' || hash.includes('type=recovery')) return true;
+  try { return !!sessionStorage.getItem(PW_RESET_STORAGE_KEY); } catch (_) { return false; }
 }
 
 function clearAuthParamsFromUrl() {
   history.replaceState(null, '', window.location.pathname);
+}
+
+function clearPasswordRecoveryMarkers() {
+  clearPasswordResetPending();
+  clearAuthParamsFromUrl();
 }
 
 function setupAuthRecoveryListener() {
@@ -1165,9 +1190,7 @@ async function processAuthCallbackFromUrl() {
     await new Promise(r => setTimeout(r, 80));
   }
 
-  const isRecovery = hashParams.get('type') === 'recovery'
-    || queryParams.get('type') === 'recovery'
-    || window.location.hash.includes('type=recovery');
+  const isRecovery = isPasswordRecoveryLanding();
   const { data: { session } } = await sb.auth.getSession();
   return { session, isRecovery };
 }
@@ -1175,7 +1198,7 @@ async function processAuthCallbackFromUrl() {
 async function beginPasswordRecovery(session) {
   if (!session?.user || _passwordRecoveryMode) return false;
   _passwordRecoveryMode = true;
-  clearAuthParamsFromUrl();
+  clearAuthParamsFromUrl(); // keep sessionStorage until password saved
   const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
   currentUser = { ...session.user, profile };
   role = normalizeRole(profile?.role || 'field');
@@ -1190,14 +1213,27 @@ async function beginPasswordRecovery(session) {
 
 function openRecoveryPasswordModal() {
   const modal = document.getElementById('m-change-pw');
+  const sub = document.querySelector('#m-change-pw .modal-sub');
+  const cancel = document.getElementById('cp-cancel-btn');
+  if (sub) sub.textContent = 'You opened a password reset link. Choose a new password to continue.';
+  if (cancel) cancel.style.display = 'none';
   if (modal) modal.classList.add('recovery-flow');
   openModal('m-change-pw');
+  setTimeout(() => document.getElementById('cp-new')?.focus(), 120);
+}
+
+function resetChangePasswordModal() {
+  const sub = document.querySelector('#m-change-pw .modal-sub');
+  const cancel = document.getElementById('cp-cancel-btn');
+  if (sub) sub.textContent = 'Enter a new password for your account.';
+  if (cancel) cancel.style.display = '';
 }
 
 function endPasswordRecoveryUi() {
   _passwordRecoveryMode = false;
   const modal = document.getElementById('m-change-pw');
   if (modal) modal.classList.remove('recovery-flow', 'open');
+  resetChangePasswordModal();
 }
 const ADMIN_FN = 'swift-handler'; // must match Supabase Edge Functions name exactly
 let _adminUsersCache = [];
@@ -1440,6 +1476,7 @@ async function gateLogin() {
     document.getElementById('g-err').textContent = 'This account has been locked. Contact your admin.';
     return;
   }
+  clearPasswordResetPending();
   currentUser = { ...data.user, profile };
   role = normalizeRole(profile?.role || 'field');
   await boot();
@@ -1458,8 +1495,9 @@ async function sendResetEmail() {
   const email = document.getElementById('forgot-email').value.trim().toLowerCase();
   const msg = document.getElementById('forgot-msg');
   if (!email) { msg.style.color='var(--red)'; msg.textContent = 'Enter your email.'; return; }
+  markPasswordResetPending(email);
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: authRedirectUrl(),
+    redirectTo: authRedirectUrl(true),
   });
   if (error) {
     msg.style.color = 'var(--red)';
@@ -1482,6 +1520,7 @@ async function doChangePw() {
   document.getElementById('cp-new').value = '';
   document.getElementById('cp-confirm').value = '';
   if (wasRecovery) {
+    clearPasswordRecoveryMarkers();
     if (currentUser?.profile?.locked) {
       await sb.auth.signOut();
       document.getElementById('g-err').textContent = 'This account has been locked. Contact your admin.';
@@ -3722,11 +3761,13 @@ async function sendUserPasswordReset(email) {
   if (!email) { toast('No email address', 'err'); return; }
   showLoading('Sending reset email…');
   try {
-    await adminApi('reset_password', { email, redirectTo: authRedirectUrl() });
+    markPasswordResetPending(email);
+    await adminApi('reset_password', { email, redirectTo: authRedirectUrl(true) });
     hideLoading();
     toast('Reset email sent to ' + email, 'ok');
   } catch (e) {
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl() });
+    markPasswordResetPending(email);
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl(true) });
     hideLoading();
     if (error) { toast(error.message, 'err'); return; }
     toast('Reset email sent to ' + email, 'ok');
@@ -4065,9 +4106,23 @@ async function startApp() {
     if (authCallback?.session && (window.location.hash || window.location.search)) {
       clearAuthParamsFromUrl();
     }
-    // Normal session check
+    // PASSWORD_RECOVERY may fire slightly after code exchange
+    await new Promise(r => setTimeout(r, 200));
+    if (_passwordRecoveryMode) {
+      clearTimeout(fallback);
+      hideLoading();
+      return;
+    }
+    const { data: { session: lateSession } } = await sb.auth.getSession();
+    if (lateSession?.user && isPasswordRecoveryLanding()) {
+      clearTimeout(fallback);
+      hideLoading();
+      await beginPasswordRecovery(lateSession);
+      return;
+    }
+    // Normal session check — skip auto-login if user still has a pending reset
     const {data:{session}}=await sb.auth.getSession();
-    if(session?.user) {
+    if(session?.user && !isPasswordRecoveryLanding()) {
       const {data:profile}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
       if(profile) {
         if(profile.locked) {
