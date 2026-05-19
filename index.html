@@ -269,8 +269,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .po-sent-item-row{display:flex;align-items:flex-start;gap:8px}
 .po-sent-item-body{flex:1;min-width:0}
 .po-sent-pay-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0;padding-top:2px}
-.po-flag-btn{padding:4px 8px!important;font-size:11px!important;min-width:32px}
-.po-flag-btn.active{background:var(--red);border-color:var(--red)}
+.po-flag-btn{padding:4px 8px!important;font-size:11px!important;min-width:32px;background:var(--card2)!important;border-color:var(--border2)!important;color:var(--text3)!important}
+.po-flag-btn:hover{background:var(--navy2)!important;color:var(--text2)!important;border-color:var(--border2)!important}
+.po-flag-btn.active{background:var(--red-lt)!important;border-color:var(--red-lt)!important;color:var(--red)!important}
+.po-flag-btn.active:hover{background:var(--red)!important;color:#fff!important;border-color:var(--red)!important}
 .po-acct-pay-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r)}
 .po-acct-pay-bar .btn{font-size:11px;padding:6px 12px}
 .po-acct-pay-bar .btn.active{box-shadow:0 0 0 2px var(--blue)}
@@ -1109,7 +1111,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.7.4';
+const APP_VERSION = '1.7.5';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -2218,6 +2220,13 @@ async function setPOSent(reqId, supId, sent) {
   toast(sent ? 'PO marked as sent' : 'PO marked as not sent', 'ok');
 }
 
+async function togglePOIssueFlag(reqId, supId) {
+  const req = D.requests.find(r => r.id === reqId);
+  if (!req) return;
+  const cur = getPOPayStatus(getReqPOState(req)[supId]);
+  await setPOPayStatus(reqId, supId, cur === 'issue' ? 'unpaid' : 'issue');
+}
+
 async function setPOPayStatus(reqId, supId, payStatus) {
   if (!roleCfg().canEditPOPayStatus) {
     toast('You cannot change payment status', 'err');
@@ -2363,7 +2372,7 @@ function renderPOSentList() {
       const issueClass = paySt === 'issue' ? ' po-sent-item-issue' : '';
       let flagBtn = '';
       if (roleCfg().canEditPOPayStatus) {
-        flagBtn = '<div class="po-sent-pay-actions" onclick="event.stopPropagation()"><button type="button" class="btn btn-red po-flag-btn' + (paySt === 'issue' ? ' active' : '') + '" title="Flag issue" onclick="setPOPayStatus(\'' + r.req.id + '\',\'' + r.sid + '\',\'issue\')"><i class="fa-solid fa-flag"></i></button>\u003c/div\u003e';
+        flagBtn = '<div class="po-sent-pay-actions" onclick="event.stopPropagation()"><button type="button" class="btn po-flag-btn' + (paySt === 'issue' ? ' active' : '') + '" title="' + (paySt === 'issue' ? 'Flagged — click to clear' : 'Flag issue') + '" onclick="togglePOIssueFlag(\'' + r.req.id + '\',\'' + r.sid + '\')"><i class="fa-solid fa-flag"></i></button>\u003c/div\u003e';
       }
       html += '<div class="po-sent-item' + active + issueClass + '"><div class="po-sent-item-row" onclick="openPOSent(\'' + r.req.id + '\',\'' + r.sid + '\')"><div class="po-sent-item-body">';
       html += '<div class="po-sent-po-title">' + title + '\u003c/div\u003e';
