@@ -229,8 +229,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .po-sent-filter .form-label{margin-bottom:6px;font-size:10px}
 .po-sent-filter select{width:100%;font-size:12px}
 .po-sent-scroll{flex:1;overflow-y:auto}
-.po-sent-job-hdr{padding:14px 16px 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold,#c9a227)}
-.po-sent-job-hdr:first-child{padding-top:10px}
+.po-sent-job-hdr-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 6px;flex-wrap:wrap}
+.po-sent-job-hdr-row:first-child{padding-top:10px}
+.po-sent-job-hdr-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold,#c9a227);flex:1;min-width:0}
+.po-sent-job-audit-btn{padding:4px 10px!important;font-size:10px!important;letter-spacing:0;text-transform:none;font-weight:600;flex-shrink:0}
 .po-sent-divider{height:1px;background:var(--border2);margin:0 16px 8px}
 .po-sent-item{padding:10px 16px 12px;cursor:pointer;border-left:3px solid transparent;transition:background .12s}
 .po-sent-item:hover{background:rgba(255,255,255,.04)}
@@ -331,6 +333,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   .card{border:none!important;padding:0!important;background:transparent!important}
   .card-title{display:none!important}
   #po-number-inp{border-bottom:0.5px solid #ccc !important;color:#c0392b !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.printing-jobsite-audit .topbar,body.printing-jobsite-audit .po-sent-layout,
+  body.printing-jobsite-audit .gate,body.printing-jobsite-audit .toast{display:none!important}
+  body.printing-jobsite-audit #audit-print-root{position:static!important;left:auto!important;display:block!important;width:100%}
+  body.printing-jobsite-audit #audit-print-root .po-doc{box-shadow:none;padding:0}
 }
 
 /* Loading overlay */
@@ -384,6 +390,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   </div>
 </div>
 <div id="app-version" style="position:fixed;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,.15);pointer-events:none;z-index:1;font-family:'IBM Plex Mono',monospace"></div>
+<div id="audit-print-root" style="position:fixed;left:-9999px;top:0;width:8.5in;z-index:-1"></div>
 
 <!-- MODALS -->
 <div class="overlay" id="m-submit">
@@ -840,7 +847,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1638,7 +1645,9 @@ function renderPOSentList() {
   const sortedJobs = Object.keys(groups).sort((a, b) => a.localeCompare(b));
   let html = '';
   sortedJobs.forEach(job => {
-    html += '<div class="po-sent-job-hdr">' + escHtml(job) + '</div><div class="po-sent-divider"></div>';
+    html += '<div class="po-sent-job-hdr-row"><span class="po-sent-job-hdr-title">' + escHtml(job) + '</span>'
+      + '<button type="button" class="btn btn-navy po-sent-job-audit-btn" onclick="event.stopPropagation();printJobsiteAudit(' + JSON.stringify(job) + ')"><i class="fa-solid fa-clipboard-list"></i> Jobsite Audit</button></div>'
+      + '<div class="po-sent-divider"></div>';
     const items = groups[job].sort((a, b) => new Date(b.po.sent_at || 0) - new Date(a.po.sent_at || 0));
     items.forEach(r => {
       const key = poSentKey(r.req.id, r.sid);
@@ -1657,6 +1666,101 @@ function renderPOSentList() {
     const [rid, sid] = _activePOSentKey.split('__');
     if (rows.some(r => r.req.id === rid && r.sid === sid)) openPOSent(rid, sid, true);
   }
+}
+
+function sentPOsForJob(jobName) {
+  return listSentPOs().filter(r => getJobNameForReq(r.req) === jobName);
+}
+
+function aggregateJobsiteAudit(poRows) {
+  const agg = {};
+  let firstDate = null;
+  let lastDate = null;
+  poRows.forEach(r => {
+    if (r.po.sent_at) {
+      const d = new Date(r.po.sent_at);
+      if (!firstDate || d < firstDate) firstDate = d;
+      if (!lastDate || d > lastDate) lastDate = d;
+    }
+    const bySup = buildBySup(r.req);
+    const data = bySup[r.sid];
+    if (!data) return;
+    data.items.forEach(it => {
+      const key = it.desc + '\x00' + it.unitP + '\x00' + (it.unitLabel || '');
+      if (!agg[key]) {
+        agg[key] = { desc: it.desc, qty: 0, unitP: it.unitP, unitLabel: it.unitLabel || '', line: 0 };
+      }
+      agg[key].qty += it.qty;
+      agg[key].line += it.line;
+    });
+  });
+  const rows = Object.values(agg).sort((a, b) => a.desc.localeCompare(b.desc));
+  const sub = rows.reduce((a, r) => a + r.line, 0);
+  return { rows, sub, firstDate, lastDate, poCount: poRows.length };
+}
+
+function buildJobsiteAuditHTML(jobName, audit) {
+  const hstPct = D.settings.hst || 13;
+  const hst = hstPct / 100;
+  const tax = audit.sub * hst;
+  const total = audit.sub + tax;
+  const b = getBranding();
+  const logoHTML = b.logo
+    ? '<img src="' + b.logo + '" alt="logo" style="max-height:44px;max-width:180px;object-fit:contain">'
+    : '<div style="font-size:20px;font-weight:700;color:#0D2137">' + (b.name1 || 'Mayfair') + '<span style="color:#c07800">' + (b.name2 || 'Electric') + '</span> Ltd.</div>';
+  const fmtD = d => d ? d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '\u2014';
+  const tbody = audit.rows.map(it => {
+    return '<tr><td>' + escHtml(it.desc) + '</td>'
+      + '<td style="text-align:center;font-weight:600">' + it.qty + '</td>'
+      + '<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace">$' + fmt(it.unitP) + escHtml(it.unitLabel) + '</td>'
+      + '<td style="text-align:right;font-weight:600;font-family:\'IBM Plex Mono\',monospace">$' + fmt(it.line) + '</td></tr>';
+  }).join('');
+  return '<div class="po-doc" id="po-print">'
+    + '<div class="po-doc-hdr"><div>' + logoHTML
+    + '<div class="po-doc-meta"><div style="font-size:13px;font-weight:700;color:#0D2137;margin-bottom:6px">Jobsite audit</di' + 'v>'
+    + '<strong>Project:</strong> ' + escHtml(jobName) + '<br>'
+    + '<strong>Date of first PO:</strong> ' + fmtD(audit.firstDate) + '<br>'
+    + '<strong>Date of last PO:</strong> ' + fmtD(audit.lastDate) + '<br>'
+    + '<strong>Sent POs combined:</strong> ' + audit.poCount
+    + '</div></div>'
+    + '<div style="text-align:right"><span class="po-to-label">Summary</span>'
+    + '<div style="font-size:12px;color:#555;margin-top:6px">Line items with the same description and unit price are combined.</div></div></div>'
+    + '<table class="po-tbl"><thead><tr><th style="width:52%">Description</th><th style="width:10%;text-align:center">QTY</th>'
+    + '<th style="width:18%;text-align:right">Unit price</th><th style="width:20%;text-align:right">Line total</th></tr></thead><tbody>'
+    + (tbody || '<tr><td colspan="4">No line items</td></tr>')
+    + '</tbody></table>'
+    + '<div class="po-totals-wrap"><div style="flex:1"></div><div class="po-tots">'
+    + '<div class="po-tot-row"><span>Subtotal</span><span>$' + fmt(audit.sub) + '</span></div>'
+    + '<div class="po-tot-row"><span>HST (' + hstPct + '%)</span><span>$' + fmt(tax) + '</span></div>'
+    + '<div class="po-tot-grand"><span>Grand total</span><span>$' + fmt(total) + '</span></div>'
+    + '</' + 'di' + 'v></' + 'di' + 'v></' + 'di' + 'v>';
+}
+
+function printJobsiteAudit(jobName) {
+  const poRows = sentPOsForJob(jobName);
+  if (!poRows.length) {
+    toast('No sent POs for this job', 'err');
+    return;
+  }
+  const audit = aggregateJobsiteAudit(poRows);
+  if (!audit.rows.length) {
+    toast('No line items to include in audit', 'err');
+    return;
+  }
+  const root = document.getElementById('audit-print-root');
+  if (!root) {
+    toast('Print container missing', 'err');
+    return;
+  }
+  root.innerHTML = buildJobsiteAuditHTML(jobName, audit);
+  document.body.classList.add('printing-jobsite-audit');
+  const cleanup = () => {
+    document.body.classList.remove('printing-jobsite-audit');
+    root.innerHTML = '';
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(() => window.print(), 80);
 }
 
 function openPOSent(reqId, supId, skipList) {
