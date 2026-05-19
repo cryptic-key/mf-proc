@@ -30,7 +30,7 @@ body{background:#0f1923}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 
 /* LOGIN GATE */
-.gate{position:fixed;inset:0;background:var(--navy3);z-index:10000;display:flex;align-items:center;justify-content:center}
+.gate{position:fixed;inset:0;background:var(--navy3);z-index:25001;display:flex;align-items:center;justify-content:center}
 .gate.hidden{display:none}
 .gate-box{background:var(--card);border:1px solid var(--border2);border-radius:var(--rxl);padding:42px 46px;width:390px;max-width:93vw;box-shadow:0 24px 80px rgba(0,0,0,.7)}
 .gate-logo{font-size:26px;font-weight:700;color:#fff;text-align:center;margin-bottom:4px;letter-spacing:-.4px}
@@ -567,7 +567,9 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 /* Loading overlay */
 .loading-overlay{position:fixed;inset:0;background:var(--navy3);z-index:20000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
-.loading-overlay.hidden{display:none}
+.loading-overlay.hidden{display:none!important;pointer-events:none!important}
+.loading-overlay.behind-gate{background:transparent;pointer-events:none}
+.loading-overlay.behind-gate .spinner,.loading-overlay.behind-gate .loading-msg{opacity:.35}
 .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--blue2);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-msg{font-size:13px;color:var(--text3)}
@@ -608,7 +610,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
     <label class="gate-label">Password</label>
     <input class="gate-inp" id="g-pw" type="password" placeholder="Password" autocomplete="current-password"
       onkeydown="if(event.key==='Enter')gateLogin()">
-    <button class="gate-btn" onclick="gateLogin()"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+    <button type="button" class="gate-btn" id="gate-signin-btn"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
     <div class="gate-err" id="g-err"></div>
     <div style="text-align:center;margin-top:12px">
       <button onclick="showForgotPw()" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline;font-family:'Inter',sans-serif">Forgot password?</button>
@@ -1093,7 +1095,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1270,13 +1272,20 @@ let sRes = [], sIdx = -1;
 // ─────────────────────────────────────────────────────────────────────────────
 // LOADING
 // ─────────────────────────────────────────────────────────────────────────────
-function showLoading(msg='Loading…') {
-  document.getElementById('loading-overlay').classList.remove('hidden');
+function showLoading(msg='Loading…', behindGate) {
+  const o = document.getElementById('loading-overlay');
+  if (!o) return;
+  o.classList.remove('hidden');
+  o.classList.toggle('behind-gate', !!behindGate || !!document.getElementById('gate') && !document.getElementById('gate').classList.contains('hidden'));
   document.getElementById('loading-msg').textContent = msg;
 }
 function hideLoading() {
+  const o = document.getElementById('loading-overlay');
+  if (o) {
+    o.classList.add('hidden');
+    o.classList.remove('behind-gate');
+  }
   if (typeof window.__mfDismissLoader === 'function') window.__mfDismissLoader();
-  else document.getElementById('loading-overlay')?.classList.add('hidden');
 }
 function showBootError(msg) {
   hideLoading();
@@ -1295,6 +1304,10 @@ async function gateLogin() {
   const err = document.getElementById('g-err');
   err.textContent = '';
   if (!email || !pw) { err.textContent = 'Enter email and password.'; return; }
+  if (!sb) {
+    err.textContent = 'Still connecting… wait a few seconds and try again.';
+    return;
+  }
   showLoading('Signing in…');
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
   if (error) {
@@ -3751,9 +3764,23 @@ function toast(msg,type='ok') {
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
+function wireGateLogin() {
+  const btn = document.getElementById('gate-signin-btn');
+  if (btn && !btn.dataset.wired) {
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => gateLogin());
+  }
+  const pw = document.getElementById('g-pw');
+  if (pw && !pw.dataset.wired) {
+    pw.dataset.wired = '1';
+    pw.addEventListener('keydown', e => { if (e.key === 'Enter') gateLogin(); });
+  }
+}
+window.gateLogin = gateLogin;
+
 async function startApp() {
   sb = initSupabaseClient();
-  showLoading('Connecting…');
+  showLoading('Connecting…', true);
   const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email')?.focus(); }, 8000);
   if (!sb || window.__sbLoadFailed) {
     clearTimeout(fallback);
@@ -3823,15 +3850,20 @@ async function startApp() {
   } catch(e) {
     console.error('Init error:',e);
     showBootError('Connection failed. Check your network and refresh.');
+  } finally {
+    clearTimeout(fallback);
+    hideLoading();
+    setTimeout(()=>document.getElementById('g-email')?.focus(),80);
   }
-  clearTimeout(fallback);
-  hideLoading();
-  setTimeout(()=>document.getElementById('g-email')?.focus(),80);
+}
+function bootApp() {
+  wireGateLogin();
+  startApp();
 }
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startApp);
+  document.addEventListener('DOMContentLoaded', bootApp);
 } else {
-  startApp();
+  bootApp();
 }
 </script>
 </body>
