@@ -559,7 +559,11 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   body.printing-jobsite-audit #audit-print-root .po-tot-row{color:#555!important}
   body.printing-jobsite-audit #audit-print-root .po-tot-grand{color:#0D2137!important}
   body.printing-jobsite-audit #audit-print-root .po-remarks-inp{border:1px solid #ccc!important;background:#fff!important;color:#111!important}
+  body.printing-jobsite-audit #audit-print-root .po-audit-sec-hdr td,
+  body.printing-jobsite-audit #audit-print-root .po-tbl tr.po-audit-sec-hdr:nth-child(even) td{background:#0D2137!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+.po-audit-sec-hdr td{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px}
+.po-sent-detail .po-audit-sec-hdr td{background:#0D2137;color:rgba(255,255,255,.92);padding:7px 12px;border-bottom:1px solid #ddd}
 
 /* Loading overlay */
 .loading-overlay{position:fixed;inset:0;background:var(--navy3);z-index:20000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
@@ -1087,7 +1091,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.5.5';
+const APP_VERSION = '1.5.6';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -2023,6 +2027,29 @@ function sentPOsForJob(jobName) {
   return listSentPOs().filter(r => getJobNameForReq(r.req) === jobName);
 }
 
+function groupJobsiteAuditBySection(rows) {
+  const map = new Map();
+  rows.forEach(row => {
+    const sid = row.sectionId || '_other';
+    if (!map.has(sid)) {
+      const sec = D.sections.find(s => s.id === sid);
+      map.set(sid, {
+        sectionId: sid,
+        sectionName: sec ? sec.name : 'Other',
+        sectionOrder: sid === '_other' ? 99999 : sectionIndex(sid),
+        rows: []
+      });
+    }
+    map.get(sid).rows.push(row);
+  });
+  return [...map.values()]
+    .sort((a, b) => a.sectionOrder - b.sectionOrder || a.sectionName.localeCompare(b.sectionName, undefined, { sensitivity: 'base' }))
+    .map(g => {
+      g.rows.sort((a, b) => a.desc.localeCompare(b.desc, undefined, { sensitivity: 'base' }));
+      return g;
+    });
+}
+
 function aggregateJobsiteAudit(poRows) {
   const agg = {};
   let firstDate = null;
@@ -2033,21 +2060,54 @@ function aggregateJobsiteAudit(poRows) {
       if (!firstDate || d < firstDate) firstDate = d;
       if (!lastDate || d > lastDate) lastDate = d;
     }
-    const bySup = buildBySup(r.req);
-    const data = bySup[r.sid];
-    if (!data) return;
-    data.items.forEach(it => {
-      const key = it.desc + '\x00' + it.unitP + '\x00' + (it.unitLabel || '');
+    r.req.items.forEach(item => {
+      if (!item.qty) return;
+      const prod = prodById(item.product_id);
+      if (!prod) return;
+      const { supId } = bestP(prod);
+      const asSup = item.assigned_supplier_id || supId;
+      if (asSup !== r.sid) return;
+      const rawP = (D.prices[prod.id]?.[asSup]?.price) || 0;
+      const { label: unit, divisor } = getUnitInfo(prod);
+      const line = (rawP / divisor) * item.qty;
+      const key = (item.product_id || item.description) + '\x00' + rawP + '\x00' + unit;
       if (!agg[key]) {
-        agg[key] = { desc: it.desc, qty: 0, unitP: it.unitP, unitLabel: it.unitLabel || '', line: 0 };
+        agg[key] = {
+          desc: item.description,
+          qty: 0,
+          unitP: rawP,
+          unitLabel: unit,
+          line: 0,
+          sectionId: prod.section_id || '_other'
+        };
       }
-      agg[key].qty += it.qty;
-      agg[key].line += it.line;
+      agg[key].qty += item.qty;
+      agg[key].line += line;
     });
   });
-  const rows = Object.values(agg).sort((a, b) => a.desc.localeCompare(b.desc));
+  const rows = Object.values(agg);
+  const sections = groupJobsiteAuditBySection(rows);
   const sub = rows.reduce((a, r) => a + r.line, 0);
-  return { rows, sub, firstDate, lastDate, poCount: poRows.length };
+  return { rows, sections, sub, firstDate, lastDate, poCount: poRows.length };
+}
+
+function buildJobsiteAuditTableBody(audit) {
+  const sections = audit.sections || groupJobsiteAuditBySection(audit.rows);
+  if (!sections.length) return '<tr><td colspan="4">No line items</td></tr>';
+  let html = '';
+  sections.forEach(sec => {
+    const secObj = sec.sectionId === '_other' ? null : D.sections.find(s => s.id === sec.sectionId);
+    const accent = getSectionColor(secObj || {});
+    html += '<tr class="po-audit-sec-hdr"><td colspan="4" style="background:#0D2137;color:rgba(255,255,255,.92);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;padding:7px 12px;border-left:4px solid ' + accent + '">'
+      + escHtml(sec.sectionName) + '</td></tr>';
+    sec.rows.forEach(it => {
+      html += '<tr><td>' + escHtml(it.desc) + '</td>'
+        + '<td style="text-align:center;font-weight:600">' + it.qty + '</td>'
+        + '<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace">$' + fmt(it.unitP) + escHtml(it.unitLabel) + '</td>'
+        + '<td style="text-align:right;font-weight:600;font-family:\'IBM Plex Mono\',monospace">$' + fmt(it.line) + '</td></tr>';
+    });
+  });
+  return html;
 }
 
 function buildJobsiteAuditHTML(jobName, audit) {
@@ -2061,12 +2121,7 @@ function buildJobsiteAuditHTML(jobName, audit) {
     ? '<img src="' + b.logo + '" alt="logo" style="max-height:44px;max-width:180px;object-fit:contain">'
     : '<div style="font-size:20px;font-weight:700;color:#0D2137">' + (b.name1 || 'Mayfair') + '<span style="color:#c07800">' + (b.name2 || 'Electric') + '</span> Ltd.</div>';
   const fmtD = d => d ? d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '\u2014';
-  const tbody = audit.rows.map(it => {
-    return '<tr><td>' + escHtml(it.desc) + '</td>'
-      + '<td style="text-align:center;font-weight:600">' + it.qty + '</td>'
-      + '<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace">$' + fmt(it.unitP) + escHtml(it.unitLabel) + '</td>'
-      + '<td style="text-align:right;font-weight:600;font-family:\'IBM Plex Mono\',monospace">$' + fmt(it.line) + '</td></tr>';
-  }).join('');
+  const tbody = buildJobsiteAuditTableBody(audit);
   return '<div class="po-doc" id="jobsite-audit-doc">'
     + '<div class="po-doc-hdr"><div>' + logoHTML
     + '<div class="po-doc-meta"><div style="font-size:13px;font-weight:700;color:#0D2137;margin-bottom:6px">Jobsite Total Material Audit</div>'
