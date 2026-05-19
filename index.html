@@ -202,6 +202,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .edit-qty:focus{border-color:var(--blue2);outline:none}
 .sup-sel{font-size:11px;padding:4px 8px;border:1px solid var(--border2);border-radius:4px;background:var(--card2);color:var(--text);font-family:'Inter',sans-serif;cursor:pointer;max-width:180px}
 .sup-sel:focus{outline:none;border-color:var(--blue2)}
+.req-readonly-qty,.req-readonly-sup{display:inline-block;padding:4px 10px;font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:4px;opacity:.85;cursor:default;user-select:text}
+.req-readonly-qty{min-width:40px;text-align:center;font-family:'IBM Plex Mono',monospace}
+.req-readonly-sup{font-size:11px;font-weight:500;max-width:200px}
+.req-items-locked .edit-qty,.req-items-locked .sup-sel{pointer-events:none;opacity:.55}
 
 /* PO SECTION */
 .po-sup-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
@@ -1070,7 +1074,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -2395,6 +2399,7 @@ function renderDetail(req) {
   const hst=(D.settings.hst||13)/100;
   const supKeys=Object.keys(bySup);
   if(!activePOSup||!bySup[activePOSup]) activePOSup=supKeys[0]||null;
+  const itemsLocked = isPostPOSentStatus(req.status);
 
   const itemRows=req.items.map((item,idx)=>{
     const prod=prodById(item.product_id);
@@ -2407,18 +2412,28 @@ function renderDetail(req) {
     const lineT=(rawP/divisor)*item.qty;
     const note=(D.prices[prod.id]?.[asSup]?.note)||'';
     const rawStr=rawP%1===0?rawP:+rawP.toPrecision(6);
+    const selSup=all.find(a=>a.supId===asSup);
+    const supDisplay=selSup
+      ? `${selSup.supName} — $${(selSup.unit%1===0?selSup.unit:+selSup.unit.toPrecision(6))}${unit}`
+      : asSupName;
     const supOpts=all.map(a=>{
       const rp=a.unit; const ps=rp%1===0?rp:+rp.toPrecision(6);
       return `<option value="${a.supId}"${a.supId===asSup?' selected':''}>${a.supName} — $${ps}${unit}</option>`;
     }).join('');
+    const qtyCell=itemsLocked
+      ? `<span class="req-readonly-qty">${item.qty}</span>`
+      : `<input class="edit-qty" type="number" min="0" value="${item.qty}" data-reqid="${req.id}" data-itemid="${item.id}" onchange="editItemQtyBtn(this)">`;
+    const supCell=itemsLocked
+      ? `<span class="req-readonly-sup">${escHtml(supDisplay)}</span>`
+      : `<select class="sup-sel" data-reqid="${req.id}" data-itemid="${item.id}" onchange="editItemSupBtn(this)">${supOpts}</select>`;
     return `<tr>
       <td style="font-size:12px">${item.description}</td>
-      <td style="text-align:center"><input class="edit-qty" type="number" min="0" value="${item.qty}" data-reqid="${req.id}" data-itemid="${item.id}" onchange="editItemQtyBtn(this)"></td>
-      <td><select class="sup-sel" data-reqid="${req.id}" data-itemid="${item.id}" onchange="editItemSupBtn(this)">${supOpts}</select></td>
+      <td style="text-align:center">${qtyCell}</td>
+      <td>${supCell}</td>
       <td style="font-size:11px;color:var(--amber);font-style:italic;max-width:160px">${note?`<span title="${note.replace(/"/g,'&quot;')}"><i class="fa-solid fa-circle-info" style="margin-right:4px;font-size:10px"></i>${note}</span>`:''}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px">$${rawStr}${unit}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px">$${fmt(lineT)}</td>
-      <td style="text-align:center"><button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="removeItem('${req.id}','${item.id}')"><i class="fa-solid fa-trash"></i></button></td>
+      ${itemsLocked?'':`<td style="text-align:center"><button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="removeItem('${req.id}','${item.id}')"><i class="fa-solid fa-trash"></i></button></td>`}
     </tr>`;
   }).join('');
 
@@ -2457,14 +2472,14 @@ function renderDetail(req) {
       <div class="tot-item"><div class="tot-val">$${fmt(grandMat*(1+hst))}</div><div class="tot-lbl">Inc. HST</div></div>
       <div class="tot-item"><div class="tot-val">${supKeys.length}</div><div class="tot-lbl">Suppliers</div></div>
     </div>
-    <div class="card" style="margin-bottom:16px">
+    <div class="card${itemsLocked?' req-items-locked':''}" style="margin-bottom:16px">
       <div class="card-title">Line Items
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:var(--text3);font-weight:400">Edit QTYs, change supplier, or remove items</span>
-          <button class="btn btn-green" style="padding:4px 10px;font-size:11px" onclick="toggleAddItem('${req.id}')"><i class="fa-solid fa-plus"></i> Add item</button>
+          <span style="font-size:11px;color:var(--text3);font-weight:400">${itemsLocked?'QTY and supplier locked — order sent to suppliers':'Edit QTYs, change supplier, or remove items'}</span>
+          ${itemsLocked?'':`<button class="btn btn-green" style="padding:4px 10px;font-size:11px" onclick="toggleAddItem('${req.id}')"><i class="fa-solid fa-plus"></i> Add item</button>`}
         </div>
       </div>
-      <div id="add-item-row-${req.id}" style="display:none;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px">
+      ${itemsLocked?'':`<div id="add-item-row-${req.id}" style="display:none;padding:10px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px">
         <div style="display:flex;gap:8px;align-items:center;padding:0 4px;flex-wrap:wrap">
           <div style="position:relative;flex:1;min-width:200px">
             <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;pointer-events:none"></i>
@@ -2474,7 +2489,7 @@ function renderDetail(req) {
           <button class="btn" style="padding:5px 10px;font-size:11px" onclick="toggleAddItem('${req.id}')">Cancel</button>
         </div>
         <div id="add-item-results-${req.id}" style="margin-top:6px;max-height:180px;overflow-y:auto;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);display:none"></div>
-      </div>
+      </div>`}
       <div style="overflow-x:auto">
         <table class="edit-table">
           <thead><tr>
@@ -2484,7 +2499,7 @@ function renderDetail(req) {
             <th style="width:15%">Note</th>
             <th style="width:10%;text-align:right">Unit Price</th>
             <th style="width:10%;text-align:right">Line Total</th>
-            <th style="width:8%;text-align:center">Del</th>
+            ${itemsLocked?'':`<th style="width:8%;text-align:center">Del</th>`}
           </tr></thead>
           <tbody>${itemRows}</tbody>
         </table>
@@ -2520,6 +2535,8 @@ function buildBySup(req) {
 
 async function editItemQtyBtn(inp) {
   const {reqid,itemid}=inp.dataset;
+  const req=D.requests.find(r=>r.id===reqid);
+  if(req&&isPostPOSentStatus(req.status)) return;
   await sb.from('request_items').update({qty:parseFloat(inp.value)||0}).eq('id',itemid);
   await loadRequests();
   const req=D.requests.find(r=>r.id===reqid); if(req) renderDetail(req);
@@ -2527,6 +2544,8 @@ async function editItemQtyBtn(inp) {
 
 async function editItemSupBtn(sel) {
   const {reqid,itemid}=sel.dataset;
+  const req=D.requests.find(r=>r.id===reqid);
+  if(req&&isPostPOSentStatus(req.status)) return;
   await sb.from('request_items').update({assigned_supplier_id:sel.value}).eq('id',itemid);
   await loadRequests();
   const req=D.requests.find(r=>r.id===reqid);
@@ -2534,6 +2553,8 @@ async function editItemSupBtn(sel) {
 }
 
 async function removeItem(reqId, itemId) {
+  const req=D.requests.find(r=>r.id===reqId);
+  if(req&&isPostPOSentStatus(req.status)) return;
   await sb.from('request_items').delete().eq('id',itemId);
   await loadRequests();
   const req=D.requests.find(r=>r.id===reqId); if(req) renderDetail(req);
@@ -2616,6 +2637,8 @@ async function deleteReq(id) {
 
 // Add item to request
 function toggleAddItem(reqId) {
+  const req=D.requests.find(r=>r.id===reqId);
+  if(req&&isPostPOSentStatus(req.status)) return;
   const row=document.getElementById('add-item-row-'+reqId); if(!row) return;
   const isOpen=row.style.display!=='none';
   row.style.display=isOpen?'none':'block';
@@ -2642,6 +2665,7 @@ function renderAddItemResults(reqId,query) {
 }
 async function addItemToReq(reqId,prodId) {
   const req=D.requests.find(r=>r.id===reqId); if(!req) return;
+  if(isPostPOSentStatus(req.status)) return;
   const prod=prodById(prodId); if(!prod) return;
   const qty=parseFloat(document.getElementById('add-item-qty-'+reqId)?.value)||1;
   const {supId}=bestP(prod);
