@@ -170,6 +170,13 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .field-req-detail .field-req-items td,.field-req-detail .field-req-items th{padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border)}
 .field-req-detail .field-req-items th{background:var(--navy2);color:rgba(255,255,255,.8);font-weight:600;text-align:left}
 .field-req-status-hint{font-size:12px;color:var(--text2);padding:12px 14px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;line-height:1.5}
+.field-po-block{margin-bottom:18px;border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;background:var(--card)}
+.field-po-hdr{padding:12px 16px;background:var(--navy2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.field-po-hdr-title{font-size:14px;font-weight:700;color:#fff}
+.field-po-hdr-meta{font-size:11px;color:rgba(255,255,255,.65)}
+.field-recv-inp{width:64px;padding:5px 6px;text-align:center;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--card2);color:var(--text);font-family:'IBM Plex Mono',monospace}
+.field-recv-inp:focus{border-color:var(--blue);outline:none}
+.field-req-items .field-recv-all{padding:4px 10px;font-size:10px;white-space:nowrap}
 .req-detail-panel{flex:1;overflow-y:auto;padding:24px}
 
 /* REQUEST DETAIL */
@@ -831,7 +838,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.3.4';
+const APP_VERSION = '1.4.0';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1095,6 +1102,13 @@ function normalizePOState(raw) {
 
 function getReqPOState(req) { return normalizePOState(req?.po_state); }
 
+function normalizePORemarks(val) {
+  const s = (val || '').trim();
+  if (!s) return '';
+  if (s === 'Notes for this PO…' || s === 'Notes for this PO...') return '';
+  return s;
+}
+
 function getSubmitterName(req) {
   if (!req?.submitted_by) return '—';
   const p = D_profilesMap[req.submitted_by];
@@ -1152,7 +1166,7 @@ async function saveSetting(key, value) {
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-function getSupName(id) { const s = D.suppliers.find(x=>x.id===id); return s ? s.name : id; }
+function getSupName(id) { if (id === '_unknown') return 'Other'; const s = D.suppliers.find(x=>x.id===id); return s ? s.name : id; }
 function getSupId(name) { const s = D.suppliers.find(x=>x.name===name); return s ? s.id : null; }
 function getSectionName(id) { const s = D.sections.find(x=>x.id===id); return s ? s.name : ''; }
 const SECTION_PALETTE = ['#2e75b6','#1a7a4a','#8e44ad','#c0392b','#d68910','#16a085','#5d6d7e','#2874a6'];
@@ -1485,7 +1499,7 @@ async function savePOMetaFromUI(reqId, supId) {
   const state = getReqPOState(req);
   if (!state[supId]) state[supId] = {};
   state[supId].po_number = document.getElementById('po-number-inp')?.value?.trim() || state[supId].po_number || '';
-  state[supId].remarks = document.getElementById('po-remarks-inp')?.value ?? state[supId].remarks ?? '';
+  state[supId].remarks = normalizePORemarks(document.getElementById('po-remarks-inp')?.value ?? '');
   await persistPOState(reqId, state);
 }
 
@@ -1529,7 +1543,7 @@ async function setPOSent(reqId, supId, sent) {
   state[supId].sent = !!sent;
   state[supId].sent_at = sent ? new Date().toISOString() : null;
   state[supId].po_number = document.getElementById('po-number-inp')?.value?.trim() || state[supId].po_number || '';
-  state[supId].remarks = document.getElementById('po-remarks-inp')?.value ?? state[supId].remarks ?? '';
+  state[supId].remarks = normalizePORemarks(document.getElementById('po-remarks-inp')?.value ?? '');
   if (!sent) delete state[supId].sent_at;
   if (!(await persistPOState(reqId, state))) return;
   if (sent) await maybeAutoCompleteRequest(reqId);
@@ -1716,21 +1730,111 @@ function openReq(id) {
   activeReq = id; activePOSup = null; renderReqList(); renderDetail(req);
 }
 
+function buildFieldPOGroups(req) {
+  const bySup = {};
+  req.items.forEach(item => {
+    const prod = prodById(item.product_id);
+    if (!item.qty) return;
+    let asSup = item.assigned_supplier_id;
+    if (!asSup && prod) asSup = bestP(prod).supId;
+    if (!asSup) asSup = '_unknown';
+    if (!bySup[asSup]) bySup[asSup] = [];
+    bySup[asSup].push(item);
+  });
+  return bySup;
+}
+
+function fieldQtyVal(item, field) {
+  const v = parseFloat(item[field]);
+  return Number.isFinite(v) ? v : 0;
+}
+
+function renderFieldPendingTable(items) {
+  const rows = items.map(item => {
+    const prod = prodById(item.product_id);
+    const unit = (prod?.unit_label || '').trim() || 'ea';
+    return '<tr><td>' + escHtml(item.description) + '</td><td style="text-align:center;font-weight:600">' + item.qty + '</td><td style="text-align:center;color:var(--text3)">' + escHtml(unit) + '</td></tr>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:16px"><div class="card-title">Materials requested <span class="tag">' + items.length + ' items</span></div><div style="overflow-x:auto"><table class="field-req-items" style="width:100%;border-collapse:collapse"><thead><tr><th>Description</th><th style="text-align:center;width:80px">QTY</th><th style="text-align:center;width:70px">Per</th></tr></thead><tbody>' + (rows || '<tr><td colspan="3" style="padding:12px;color:var(--text3)">No line items</td></tr>') + '</tbody></table></div></div>';
+}
+
+function renderFieldPOSection(req, supId, items, poSt, sent) {
+  const supName = getSupName(supId);
+  const poNum = (poSt?.po_number || '').trim();
+  const poTitle = poNum ? 'PO # ' + escHtml(poNum) + ' \u2014 ' + escHtml(supName) : 'Purchase order \u2014 ' + escHtml(supName);
+  const sentMeta = sent && poSt?.sent_at
+    ? '<span class="badge badge-blue" style="margin-left:8px">Sent</span> <span class="field-po-hdr-meta">' + formatPOSentAt(poSt.sent_at) + '</span>'
+    : '<span class="badge badge-gray" style="margin-left:8px">Awaiting send</span>';
+
+  if (!sent) {
+    let rows = '';
+    items.forEach(item => {
+      const prod = prodById(item.product_id);
+      const unit = (prod?.unit_label || '').trim() || 'ea';
+      rows += '<tr><td>' + escHtml(item.description) + '</td><td style="text-align:center;font-weight:600">' + item.qty + '</td><td style="text-align:center;color:var(--text3)">' + escHtml(unit) + '</td></tr>';
+    });
+    return '<div class="field-po-block"><div class="field-po-hdr"><div class="field-po-hdr-title">' + poTitle + '</div>' + sentMeta + '</div><div style="overflow-x:auto"><table class="field-req-items" style="width:100%;border-collapse:collapse"><thead><tr><th>Description</th><th style="text-align:center;width:72px">Ordered</th><th style="text-align:center;width:56px">Per</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  }
+
+  let rows = '';
+  items.forEach(item => {
+    const ordered = item.qty;
+    const recv = fieldQtyVal(item, 'qty_received');
+    const back = fieldQtyVal(item, 'qty_backordered');
+    const prod = prodById(item.product_id);
+    const unit = (prod?.unit_label || '').trim() || 'ea';
+    rows += '<tr><td>' + escHtml(item.description) + '</td>';
+    rows += '<td style="text-align:center;font-weight:600;font-family:\'IBM Plex Mono\',monospace">' + ordered + '</td>';
+    rows += '<td style="text-align:center;color:var(--text3);font-size:11px">' + escHtml(unit) + '</td>';
+    rows += '<td style="text-align:center"><input class="field-recv-inp" type="number" min="0" step="any" value="' + recv + '" data-reqid="' + req.id + '" data-itemid="' + item.id + '" data-ordered="' + ordered + '" onchange="updateFieldReceiving(this,\'qty_received\')"></td>';
+    rows += '<td style="text-align:center"><input class="field-recv-inp" type="number" min="0" step="any" value="' + back + '" data-reqid="' + req.id + '" data-itemid="' + item.id + '" data-ordered="' + ordered + '" onchange="updateFieldReceiving(this,\'qty_backordered\')"></td>';
+    rows += '<td style="text-align:center"><button type="button" class="btn btn-green field-recv-all" onclick="receiveAllFieldItem(\'' + req.id + '\',\'' + item.id + '\',' + ordered + ')"><i class="fa-solid fa-check-double"></i> Received all</button></td></tr>';
+  });
+  return '<div class="field-po-block"><div class="field-po-hdr"><div class="field-po-hdr-title">' + poTitle + '</div>' + sentMeta + '</div><div style="overflow-x:auto"><table class="field-req-items" style="width:100%;border-collapse:collapse"><thead><tr><th>Description</th><th style="text-align:center;width:72px">Ordered</th><th style="text-align:center;width:48px">Per</th><th style="text-align:center;width:80px">Qty received</th><th style="text-align:center;width:80px">Back ordered</th><th style="text-align:center;width:110px"></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+}
+
+async function updateFieldReceiving(inp, field) {
+  const { reqid, itemid, ordered } = inp.dataset;
+  let n = Math.max(0, parseFloat(inp.value) || 0);
+  const ord = parseFloat(ordered) || 0;
+  if (field === 'qty_received' && n > ord) n = ord;
+  inp.value = n;
+  let patch = field === 'qty_received' ? { qty_received: n } : { qty_backordered: n };
+  if (field === 'qty_received' && n >= ord) patch = { qty_received: n, qty_backordered: 0 };
+  const { error } = await sb.from('request_items').update(patch).eq('id', itemid);
+  if (error) { toast(error.message, 'err'); return; }
+  const req = D.requests.find(r => r.id === reqid);
+  const item = req?.items.find(i => i.id === itemid);
+  if (item) {
+    item.qty_received = patch.qty_received ?? item.qty_received;
+    item.qty_backordered = patch.qty_backordered ?? item.qty_backordered;
+  }
+  toast('Saved', 'ok');
+}
+
+async function receiveAllFieldItem(reqId, itemId, orderedQty) {
+  const ord = parseFloat(orderedQty) || 0;
+  const { error } = await sb.from('request_items').update({ qty_received: ord, qty_backordered: 0 }).eq('id', itemId);
+  if (error) { toast(error.message, 'err'); return; }
+  await loadRequests();
+  const req = D.requests.find(r => r.id === reqId);
+  if (req) renderFieldDetail(req);
+  toast('Marked all received', 'ok');
+}
+
 function renderFieldDetail(req) {
   const panel = document.getElementById('req-detail');
   const dn = new Date(req.date_needed + 'T12:00:00').toLocaleDateString('en-CA');
   const sub = req.submitted_at
     ? new Date(req.submitted_at).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })
     : '—';
-  const itemRows = req.items.map(item => {
-    const prod = prodById(item.product_id);
-    const unit = (prod?.unit_label || '').trim() || 'ea';
-    return `<tr>
-      <td>${escHtml(item.description)}</td>
-      <td style="text-align:center;font-weight:600">${item.qty}</td>
-      <td style="text-align:center;color:var(--text3)">${escHtml(unit)}</td>
-    </tr>`;
-  }).join('');
+  const poState = getReqPOState(req);
+  const bySup = buildFieldPOGroups(req);
+  const supIds = Object.keys(bySup).sort((a, b) => getSupName(a).localeCompare(getSupName(b)));
+  const showPOBreakdown = poStatusesVisible(req) && supIds.length > 0;
+  const bodyHtml = showPOBreakdown
+    ? supIds.map(sid => renderFieldPOSection(req, sid, bySup[sid], poState[sid] || {}, !!poState[sid]?.sent)).join('')
+    : renderFieldPendingTable(req.items);
   panel.innerHTML = `
     <div class="detail-hdr field-req-detail">
       <div>
@@ -1744,15 +1848,7 @@ function renderFieldDetail(req) {
       </div>
     </div>
     <p class="field-req-status-hint"><i class="fa-solid fa-circle-info" style="color:var(--blue2);margin-right:6px"></i>${statusHint(req.status)}</p>
-    <div class="card">
-      <div class="card-title">Materials requested <span class="tag">${req.items.length} items</span></div>
-      <div style="overflow-x:auto">
-        <table class="field-req-items" style="width:100%;border-collapse:collapse">
-          <thead><tr><th>Description</th><th style="text-align:center;width:80px">QTY</th><th style="text-align:center;width:70px">Per</th></tr></thead>
-          <tbody>${itemRows || '<tr><td colspan="3" style="padding:12px;color:var(--text3)">No line items</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>`;
+    ${bodyHtml}`;
 }
 
 function renderDetail(req) {
@@ -2051,7 +2147,7 @@ function buildPOHTML(req, data, supName, supId, readOnly) {
   const b=getBranding();
   const poSt = (supId && getReqPOState(req)[supId]) || {};
   const poNum = poSt.po_number || '';
-  const remarks = poSt.remarks || '';
+  const remarks = normalizePORemarks(poSt.remarks);
   const sent = !!poSt.sent;
   const logoHTML=b.logo?`<img src="${b.logo}" alt="logo" style="max-height:44px;max-width:180px;object-fit:contain">`:`<div style="font-size:20px;font-weight:700;color:#0D2137">${b.name1||'Mayfair'}<span style="color:#c07800">${b.name2||'Electric'}</span> Ltd.</div>`;
   return `<div class="po-doc" id="po-print">
@@ -2073,7 +2169,7 @@ function buildPOHTML(req, data, supName, supId, readOnly) {
       <tbody>${data.items.map(it=>`<tr><td>${it.desc}</td><td style="text-align:center;font-weight:600">${it.qty}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace">$${fmt(it.unitP)}${it.unitLabel||''}</td><td style="text-align:right;font-weight:600;font-family:'IBM Plex Mono',monospace">$${fmt(it.line)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="po-totals-wrap">
-      <div class="po-remarks-wrap"><label>Remarks</label><textarea id="po-remarks-inp" class="po-remarks-inp" placeholder="Notes for this PO…" ${readOnly?'readonly':''} onblur="savePORemarks('${req.id}','${supId}')">${escHtml(remarks)}</textarea></div>
+      <div class="po-remarks-wrap"><label>Remarks</label><textarea id="po-remarks-inp" class="po-remarks-inp" ${readOnly?'readonly':''} onblur="savePORemarks('${req.id}','${supId}')">${escHtml(remarks)}</textarea></div>
       <div class="po-tots">
       <div class="po-tot-row"><span>Subtotal</span><span>$${fmt(sub)}</span></div>
       <div class="po-tot-row"><span>HST (${D.settings.hst||13}%)</span><span>$${fmt(tax)}</span></div>
