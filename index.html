@@ -238,6 +238,10 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .prod-sec-divider-inner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:3px solid var(--sec-accent,#2e75b6);border-bottom:1px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--sec-accent,#2e75b6) 28%,var(--navy2)) 0%,var(--navy2) 50%)}
 .prod-sec-stripe{width:4px;height:22px;border-radius:2px;background:var(--sec-accent,#2e75b6);flex-shrink:0}
 .prod-sec-divider-name{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#fff;flex:1}
+.prod-sec-name-inp{flex:1;font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:transparent;border:1px solid transparent;border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;min-width:120px;max-width:100%}
+.prod-sec-name-inp:focus{border-color:rgba(255,255,255,.4);background:rgba(0,0,0,.25);outline:none}
+.prod-desc-inp{font-size:12px;padding:4px 8px;width:100%;min-width:120px;background:transparent;border-color:transparent}
+.prod-desc-inp:focus{border-color:var(--border2)!important;background:var(--card)!important}
 .prod-sec-meta{font-size:10px;color:rgba(255,255,255,.55);font-weight:500}
 .sec-color-edit{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.5);cursor:pointer}
 .sec-color-edit input[type=color]{width:26px;height:26px;padding:0;border:2px solid rgba(255,255,255,.25);border-radius:6px;background:transparent;cursor:pointer}
@@ -761,7 +765,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.2.4';
+const APP_VERSION = '1.2.5';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1751,7 +1755,12 @@ function productRowHtml(prod, reorderOk) {
     : `<td class="prod-drag-handle disabled"><i class="fa-solid fa-grip-vertical"></i></td>`;
   return `<tr class="prod-row" data-prod-id="${prod.id}" data-section-id="${prod.section_id}" ${reorderOk ? `draggable="true" ondragstart="onProductDragStart(event,'${prod.id}')" ondragend="onProductDragEnd(event)" ondragover="onProductDragOver(event)" ondragleave="onProductDragLeave(event)" ondrop="onProductDrop(event,'${prod.id}')"` : ''}>
     ${dragCell}
-    <td style="font-size:12px">${escHtml(prod.description)}</td>
+    <td style="font-size:12px;padding:4px 8px">
+      <input class="form-inp prod-desc-inp" value="${escHtml(prod.description)}" title="Click to rename"
+        onfocus="this.style.borderColor='var(--border2)';this.style.background='var(--card)'"
+        onblur="this.style.borderColor='transparent';this.style.background='transparent';renameProdBtn(this,'${prod.id}')"
+        onkeydown="if(event.key==='Enter')this.blur()">
+    </td>
     <td style="text-align:center;padding:3px 6px">
       <input class="ep-inp" type="text" value="${escHtml(prod.unit_label||'')}" placeholder="ea"
         style="width:60px;text-align:center;font-family:'Inter',sans-serif;font-size:11px"
@@ -1770,7 +1779,10 @@ function sectionDividerRow(sec, itemCount, colCount) {
     <td colspan="${colCount}">
       <div class="prod-sec-divider-inner">
         <span class="prod-sec-stripe"></span>
-        <span class="prod-sec-divider-name">${escHtml(sec.name)}</span>
+        <input class="prod-sec-name-inp" value="${escHtml(sec.name)}" title="Click to rename section"
+          onclick="event.stopPropagation()"
+          onkeydown="if(event.key==='Enter'){event.stopPropagation();this.blur()}"
+          onblur="renameSectionBtn(this,'${sec.id}')">
         <span class="prod-sec-meta">${itemCount} product${itemCount===1?'':'s'} · drag rows below within this block</span>
         <label class="sec-color-edit" title="Change section color">
           <i class="fa-solid fa-palette"></i>
@@ -1779,6 +1791,36 @@ function sectionDividerRow(sec, itemCount, colCount) {
       </div>
     </td>
   </tr>`;
+}
+
+async function renameProdBtn(inp, id) {
+  const newDesc = inp.value.trim();
+  const prod = D.products.find(p => p.id === id);
+  if (!prod) return;
+  if (!newDesc) { toast('Description cannot be empty', 'err'); inp.value = prod.description; return; }
+  if (newDesc === prod.description) return;
+  const { error } = await sb.from('products').update({ description: newDesc }).eq('id', id);
+  if (error) { toast(error.message, 'err'); inp.value = prod.description; return; }
+  prod.description = newDesc;
+  refreshFieldIfVisible();
+  toast('Product renamed', 'ok');
+}
+
+async function renameSectionBtn(inp, id) {
+  const newName = inp.value.trim();
+  const sec = D.sections.find(s => s.id === id);
+  if (!sec) return;
+  if (!newName) { toast('Section name cannot be empty', 'err'); inp.value = sec.name; return; }
+  if (newName === sec.name) return;
+  if (D.sections.find(s => s.name.toLowerCase() === newName.toLowerCase() && s.id !== id)) {
+    toast('Section name already exists', 'err'); inp.value = sec.name; return;
+  }
+  const { error } = await sb.from('sections').update({ name: newName }).eq('id', id);
+  if (error) { toast(error.message, 'err'); inp.value = sec.name; return; }
+  sec.name = newName;
+  renderProducts();
+  refreshFieldIfVisible();
+  toast('Section renamed', 'ok');
 }
 
 async function saveSectionColor(secId, color) {
