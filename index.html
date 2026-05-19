@@ -333,6 +333,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 /* MODALS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:none;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex}
+.overlay.recovery-flow{z-index:26002}
 .modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--rxl);padding:28px;width:460px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .modal-lg{width:640px}
 .modal-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:5px}
@@ -1108,7 +1109,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.7.3';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1116,9 +1117,87 @@ let sb = null;
 function initSupabaseClient() {
   try {
     const lib = window.supabase || window.Supabase;
-    if (lib && typeof lib.createClient === 'function') return lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (lib && typeof lib.createClient === 'function') {
+      return lib.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { detectSessionInUrl: true, persistSession: true },
+      });
+    }
   } catch (e) { console.error('Supabase client init failed:', e); }
   return null;
+}
+
+let _passwordRecoveryMode = false;
+
+function authRedirectUrl() {
+  const u = new URL(window.location.href);
+  u.hash = '';
+  u.search = '';
+  return u.href;
+}
+
+function clearAuthParamsFromUrl() {
+  history.replaceState(null, '', window.location.pathname);
+}
+
+function setupAuthRecoveryListener() {
+  if (!sb || sb.__recoveryListener) return;
+  sb.__recoveryListener = true;
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY' && session?.user && !_passwordRecoveryMode) {
+      beginPasswordRecovery(session);
+    }
+  });
+}
+
+async function processAuthCallbackFromUrl() {
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+  const hashParams = new URLSearchParams(hash);
+  const queryParams = new URLSearchParams(window.location.search);
+  const err = hashParams.get('error') || queryParams.get('error');
+  const errDesc = hashParams.get('error_description') || queryParams.get('error_description');
+  if (err) return { error: errDesc || err };
+
+  const code = queryParams.get('code');
+  if (code) {
+    const { error } = await sb.auth.exchangeCodeForSession(code);
+    if (error) return { error: error.message };
+  } else if (hashParams.get('access_token')) {
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  const isRecovery = hashParams.get('type') === 'recovery'
+    || queryParams.get('type') === 'recovery'
+    || window.location.hash.includes('type=recovery');
+  const { data: { session } } = await sb.auth.getSession();
+  return { session, isRecovery };
+}
+
+async function beginPasswordRecovery(session) {
+  if (!session?.user || _passwordRecoveryMode) return false;
+  _passwordRecoveryMode = true;
+  clearAuthParamsFromUrl();
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  currentUser = { ...session.user, profile };
+  role = normalizeRole(profile?.role || 'field');
+  document.getElementById('gate').classList.remove('hidden');
+  document.getElementById('app').style.display = 'none';
+  hideForgotPw();
+  document.getElementById('g-err').textContent = '';
+  openRecoveryPasswordModal();
+  toast('Set your new password to finish the reset', 'info');
+  return true;
+}
+
+function openRecoveryPasswordModal() {
+  const modal = document.getElementById('m-change-pw');
+  if (modal) modal.classList.add('recovery-flow');
+  openModal('m-change-pw');
+}
+
+function endPasswordRecoveryUi() {
+  _passwordRecoveryMode = false;
+  const modal = document.getElementById('m-change-pw');
+  if (modal) modal.classList.remove('recovery-flow', 'open');
 }
 const ADMIN_FN = 'swift-handler'; // must match Supabase Edge Functions name exactly
 let _adminUsersCache = [];
@@ -1376,11 +1455,11 @@ function hideForgotPw() {
 }
 
 async function sendResetEmail() {
-  const email = document.getElementById('forgot-email').value.trim();
+  const email = document.getElementById('forgot-email').value.trim().toLowerCase();
   const msg = document.getElementById('forgot-msg');
   if (!email) { msg.style.color='var(--red)'; msg.textContent = 'Enter your email.'; return; }
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href
+    redirectTo: authRedirectUrl(),
   });
   if (error) {
     msg.style.color = 'var(--red)';
@@ -1396,11 +1475,30 @@ async function doChangePw() {
   const conf = document.getElementById('cp-confirm').value.trim();
   if (!pw || pw.length < 6) { toast('Password must be 6+ characters', 'err'); return; }
   if (pw !== conf) { toast('Passwords do not match', 'err'); return; }
+  const wasRecovery = _passwordRecoveryMode;
   const { error } = await sb.auth.updateUser({ password: pw });
   if (error) { toast(error.message, 'err'); return; }
-  closeModal('m-change-pw');
+  endPasswordRecoveryUi();
   document.getElementById('cp-new').value = '';
   document.getElementById('cp-confirm').value = '';
+  if (wasRecovery) {
+    if (currentUser?.profile?.locked) {
+      await sb.auth.signOut();
+      document.getElementById('g-err').textContent = 'This account has been locked. Contact your admin.';
+      return;
+    }
+    showLoading('Loading app…');
+    try {
+      await boot();
+      toast('Password updated — you are signed in', 'ok');
+    } catch (e) {
+      console.error('boot after recovery:', e);
+      showBootError('Password saved but the app failed to load. Refresh and sign in with your new password.');
+    } finally {
+      hideLoading();
+    }
+    return;
+  }
   toast('Password updated successfully ✓', 'ok');
 }
 
@@ -3624,11 +3722,11 @@ async function sendUserPasswordReset(email) {
   if (!email) { toast('No email address', 'err'); return; }
   showLoading('Sending reset email…');
   try {
-    await adminApi('reset_password', { email, redirectTo: window.location.href.split('#')[0] });
+    await adminApi('reset_password', { email, redirectTo: authRedirectUrl() });
     hideLoading();
     toast('Reset email sent to ' + email, 'ok');
   } catch (e) {
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl() });
     hideLoading();
     if (error) { toast(error.message, 'err'); return; }
     toast('Reset email sent to ' + email, 'ok');
@@ -3881,7 +3979,15 @@ function clearSearch() { document.getElementById('search-inp').value=''; documen
 // MODALS / TOAST / UTILS
 // ─────────────────────────────────────────────────────────────────────────────
 function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  if (id === 'm-change-pw' && _passwordRecoveryMode) {
+    endPasswordRecoveryUi();
+    sb?.auth.signOut();
+    document.getElementById('g-err').textContent = 'Password reset cancelled. Request a new link if needed.';
+    return;
+  }
+  document.getElementById(id).classList.remove('open');
+}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('open');}));
 document.addEventListener('click',e=>{
   if(!document.getElementById('search-area')?.contains(e.target)) closeDrop();
@@ -3937,32 +4043,27 @@ async function startApp() {
       if(s.key==='brand_logo') D.settings.brand_logo=s.value;
     });
     applyBranding();
-    // Check if this is a password reset redirect
-    const hash = window.location.hash;
-    if(hash.includes('type=recovery') || hash.includes('error=access_denied')) {
+    setupAuthRecoveryListener();
+    const authCallback = await processAuthCallbackFromUrl();
+    if (authCallback?.error) {
       clearTimeout(fallback);
       hideLoading();
-      if(hash.includes('error=access_denied')||hash.includes('otp_expired')) {
-        document.getElementById('g-err').textContent = 'Reset link expired. Please request a new one.';
-      } else {
-        // Valid recovery — Supabase auto-signs them in, show change password modal
-        const {data:{session}} = await sb.auth.getSession();
-        if(session?.user) {
-          const {data:profile} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
-          currentUser = {...session.user, profile};
-          role = normalizeRole(profile?.role||'field');
-          try { await boot(); } catch (e) { console.error('Boot error:', e); showBootError('Failed to load app data. Refresh and try again.'); clearTimeout(fallback); return; }
-          clearTimeout(fallback);
-          // Clear hash from URL
-          history.replaceState(null,'',window.location.pathname);
-          // Show change password modal immediately
-          setTimeout(()=>{ openModal('m-change-pw'); toast('Please set your new password','info'); },600);
-          return;
-        }
+      let msg = decodeURIComponent(String(authCallback.error).replace(/\+/g, ' '));
+      if (/access_denied|otp_expired|invalid/i.test(msg)) {
+        msg = 'Reset link expired or invalid. Request a new one with Forgot password.';
       }
-      history.replaceState(null,'',window.location.pathname);
-      setTimeout(()=>document.getElementById('g-email').focus(),80);
+      document.getElementById('g-err').textContent = msg;
+      clearAuthParamsFromUrl();
       return;
+    }
+    if (authCallback?.session && authCallback.isRecovery) {
+      clearTimeout(fallback);
+      hideLoading();
+      await beginPasswordRecovery(authCallback.session);
+      return;
+    }
+    if (authCallback?.session && (window.location.hash || window.location.search)) {
+      clearAuthParamsFromUrl();
     }
     // Normal session check
     const {data:{session}}=await sb.auth.getSession();
