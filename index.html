@@ -129,6 +129,9 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .mat-qty-wrap{padding:3px 8px;display:flex;justify-content:center}
 .qty-inp{width:70px;text-align:center;font-size:13px;font-weight:600;padding:5px 6px;border:1px solid var(--border2);border-radius:var(--r);background:var(--card2);color:var(--text);font-family:'Inter',sans-serif}
 .qty-inp:focus{border-color:var(--green);outline:none;background:#0d1e00}
+.qty-inp::-webkit-outer-spin-button,.qty-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.qty-inp{-moz-appearance:textfield;appearance:textfield}
+.field-view-note{font-size:11px;color:var(--text3);padding:8px 16px;border-bottom:1px solid var(--border);background:var(--card2);line-height:1.45}
 .field-footer{border-top:1px solid var(--border);padding:14px 20px;background:var(--card);flex-shrink:0}
 .field-meta-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end}
 .stat-strip{display:flex;gap:24px;margin-bottom:12px}
@@ -218,6 +221,12 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .prod-tbl th{background:var(--navy2);color:rgba(255,255,255,.6);padding:8px 12px;text-align:left;font-size:11px;font-weight:500}
 .prod-tbl td{padding:6px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
 .prod-tbl tr:hover td{background:var(--card2)}
+.prod-tbl tr.prod-dragging td{opacity:.45}
+.prod-tbl tr.prod-drag-over td{background:rgba(46,117,182,.18)!important}
+.prod-drag-handle{cursor:grab;color:var(--text3);padding:0 6px;text-align:center;user-select:none;width:28px}
+.prod-drag-handle:active{cursor:grabbing}
+.prod-drag-handle.disabled{opacity:.25;cursor:not-allowed}
+.prod-reorder-hint{font-size:11px;color:var(--text3);margin:-6px 0 10px;font-weight:400}
 .ep-inp{width:78px;text-align:right;font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;background:var(--card2);color:var(--text);font-family:'IBM Plex Mono',monospace}
 .ep-inp:focus{border-color:var(--blue2);outline:none}
 .sup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
@@ -545,6 +554,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
             <span>Material Description</span>
             <span>QTY</span>
           </div>
+          <p id="field-view-note" class="field-view-note" aria-live="polite"></p>
           <div id="mat-rows"></div>
         </div>
       </div>
@@ -626,6 +636,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
                 <button class="btn btn-green" onclick="openAddProduct()"><i class="fa-solid fa-plus"></i> Add Product</button>
               </div>
             </div>
+            <p class="prod-reorder-hint" id="prod-reorder-hint"></p>
             <div style="overflow-x:auto">
               <table class="prod-tbl" id="prod-tbl">
                 <thead id="prod-thead"></thead>
@@ -722,7 +733,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.1';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -800,6 +811,7 @@ let D = { suppliers:[], sections:[], products:[], prices:{}, requests:[], settin
 let currentUser = null;
 let role = null;
 let fqty = {};
+let fieldSecFilter = null;
 let activeReq = null;
 let activePOSup = null;
 let sRes = [], sIdx = -1;
@@ -934,9 +946,10 @@ async function loadSections() {
 }
 
 async function loadProducts() {
-  const { data: prods } = await sb.from('products').select('*').order('description');
+  const { data: prods } = await sb.from('products').select('*');
   const { data: prices } = await sb.from('product_prices').select('*');
   D.products = prods || [];
+  D.products.sort(compareProducts);
   // Build prices lookup: prices[product_id][supplier_id] = {price, note}
   D.prices = {};
   (prices || []).forEach(p => {
@@ -1030,6 +1043,10 @@ function switchAdminTab(t) {
 // ─────────────────────────────────────────────────────────────────────────────
 // FIELD REQUEST
 // ─────────────────────────────────────────────────────────────────────────────
+function refreshFieldIfVisible() {
+  if (document.getElementById('view-field')?.classList.contains('active')) renderField();
+}
+
 function renderField() {
   const sb2 = document.getElementById('field-sidebar');
   const rows = document.getElementById('mat-rows');
@@ -1037,26 +1054,38 @@ function renderField() {
   rows.innerHTML = '';
   if (!document.getElementById('f-date').value)
     document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  const noteEl = document.getElementById('field-view-note');
+  if (noteEl) {
+    noteEl.textContent = fieldSecFilter
+      ? 'Showing one category. Click All categories to see everything. Submit when ready.'
+      : 'Build a material list here, then Submit Request. This is not the same as the Requests inbox.';
+  }
+  const allSi = document.createElement('div');
+  allSi.className = 'fsec-item' + (fieldSecFilter === null ? ' active' : '');
+  allSi.innerHTML = '<span style="flex:1;font-size:11px">All categories</span>';
+  allSi.onclick = () => { fieldSecFilter = null; renderField(); };
+  sb2.appendChild(allSi);
   D.sections.forEach(sec => {
-    const prods = D.products.filter(p=>p.section_id===sec.id);
+    const prods = sortProductsList(D.products.filter(p=>p.section_id===sec.id));
     const cnt = prods.filter(p=>fqty[p.id]>0).length;
     const si = document.createElement('div');
-    si.className='fsec-item'; si.dataset.sid=sec.id;
+    si.className='fsec-item'+(fieldSecFilter===sec.id?' active':'');
+    si.dataset.sid=sec.id;
     si.innerHTML=`<span style="flex:1;font-size:11px">${sec.name}</span><span class="fsec-badge${cnt?' show':''}">${cnt||''}</span>`;
-    si.onclick=()=>{ document.querySelectorAll('.fsec-item').forEach(e=>e.classList.remove('active')); si.classList.add('active'); document.getElementById('shdr-'+sec.id)?.scrollIntoView({behavior:'smooth',block:'start'}); };
+    si.onclick=()=>{ fieldSecFilter=sec.id; renderField(); };
     sb2.appendChild(si);
+    if(fieldSecFilter&&fieldSecFilter!==sec.id) return;
     const hdr=document.createElement('div'); hdr.className='sec-hdr'; hdr.id='shdr-'+sec.id; hdr.textContent=sec.name;
     rows.appendChild(hdr);
     prods.forEach(prod=>{
       const row=document.createElement('div');
       row.className='mat-row'+(fqty[prod.id]>0?' has-qty':''); row.id='mrow-'+prod.id;
       row.innerHTML=`<div class="mat-desc">${prod.description}</div>
-        <div class="mat-qty-wrap"><input class="qty-inp" type="number" min="0" id="qi-${prod.id}"
-          value="${fqty[prod.id]||''}" placeholder="—" onchange="setFQty('${prod.id}',this.value)"></div>`;
+        <div class="mat-qty-wrap"><input class="qty-inp" type="number" min="0" step="any" id="qi-${prod.id}"
+          value="${fqty[prod.id]||''}" placeholder="0" onchange="setFQty('${prod.id}',this.value)"></div>`;
       rows.appendChild(row);
     });
   });
-  const first=sb2.querySelector('.fsec-item'); if(first) first.classList.add('active');
   updateFStats();
 }
 
@@ -1461,6 +1490,90 @@ function doCopyPO(btn) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN — PRODUCTS
 // ─────────────────────────────────────────────────────────────────────────────
+let _dragProdId = null;
+
+function sectionIndex(sectionId) {
+  const i = D.sections.findIndex(s => s.id === sectionId);
+  return i < 0 ? 9999 : i;
+}
+
+function compareProducts(a, b) {
+  const si = sectionIndex(a.section_id) - sectionIndex(b.section_id);
+  if (si !== 0) return si;
+  const oa = a.sort_order ?? 0, ob = b.sort_order ?? 0;
+  if (oa !== ob) return oa - ob;
+  return (a.description || '').localeCompare(b.description || '', undefined, { sensitivity: 'base' });
+}
+
+function sortProductsList(list) {
+  return [...list].sort(compareProducts);
+}
+
+function canReorderProducts() {
+  return !(document.getElementById('prod-search')?.value || '').trim();
+}
+
+function onProductDragStart(e, prodId) {
+  if (!canReorderProducts()) { e.preventDefault(); return; }
+  _dragProdId = prodId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', prodId);
+  e.currentTarget.classList.add('prod-dragging');
+}
+
+function onProductDragEnd(e) {
+  e.currentTarget.classList.remove('prod-dragging');
+  document.querySelectorAll('.prod-tbl tr.prod-drag-over').forEach(r => r.classList.remove('prod-drag-over'));
+  _dragProdId = null;
+}
+
+function onProductDragOver(e) {
+  if (!canReorderProducts() || !_dragProdId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.currentTarget.closest('tr');
+  if (row && row.dataset.prodId) row.classList.add('prod-drag-over');
+}
+
+function onProductDragLeave(e) {
+  const row = e.currentTarget.closest('tr');
+  if (row) row.classList.remove('prod-drag-over');
+}
+
+async function onProductDrop(e, targetProdId) {
+  e.preventDefault();
+  const row = e.currentTarget.closest('tr');
+  if (row) row.classList.remove('prod-drag-over');
+  if (!canReorderProducts() || !_dragProdId || _dragProdId === targetProdId) return;
+  const dragProd = prodById(_dragProdId), targetProd = prodById(targetProdId);
+  if (!dragProd || !targetProd) return;
+  if (dragProd.section_id !== targetProd.section_id) {
+    toast('Drag within the same section only', 'err');
+    return;
+  }
+  let inSec = sortProductsList(D.products.filter(p => p.section_id === dragProd.section_id));
+  const from = inSec.findIndex(p => p.id === _dragProdId);
+  const to = inSec.findIndex(p => p.id === targetProdId);
+  if (from < 0 || to < 0) return;
+  const [moved] = inSec.splice(from, 1);
+  inSec.splice(to, 0, moved);
+  showLoading('Saving order…');
+  try {
+    await Promise.all(inSec.map((p, i) => sb.from('products').update({ sort_order: i }).eq('id', p.id)));
+    inSec.forEach((p, i) => { const x = D.products.find(pr => pr.id === p.id); if (x) x.sort_order = i; });
+    D.products.sort(compareProducts);
+    hideLoading();
+    renderProducts();
+    refreshFieldIfVisible();
+    toast('Order saved', 'ok');
+  } catch (err) {
+    hideLoading();
+    toast(err.message || 'Could not save order', 'err');
+    await loadProducts();
+    renderProducts();
+  }
+}
+
 function renderProducts() {
   const filterSec=document.getElementById('filter-asec').value;
   const searchQ=(document.getElementById('prod-search')?.value||'').toLowerCase().trim();
@@ -1470,8 +1583,17 @@ function renderProducts() {
   let prods=D.products;
   if(filterSec) prods=prods.filter(p=>p.section_id===filterSec);
   if(searchQ) prods=prods.filter(p=>p.description.toLowerCase().includes(searchQ));
+  prods = sortProductsList(prods);
+  const reorderOk = canReorderProducts();
+  const hintEl = document.getElementById('prod-reorder-hint');
+  if (hintEl) {
+    hintEl.textContent = reorderOk
+      ? (filterSec ? 'Default: section → name. Drag rows to set custom order in this section.' : 'Default: section → name. Drag rows to reorder (same section only).')
+      : 'Clear search to drag and reorder products.';
+  }
   document.getElementById('prod-count').textContent=prods.length+' items';
   document.getElementById('prod-thead').innerHTML=`<tr>
+    <th style="width:28px" title="Drag to reorder"></th>
     <th>Description</th><th>Section</th><th style="text-align:center">Per</th>
     ${D.suppliers.map(s=>`<th style="text-align:right;font-size:10px;min-width:92px">${s.name}</th>`).join('')}
     <th style="text-align:center;width:55px">Del</th>
@@ -1507,7 +1629,11 @@ function renderProducts() {
         </div>
       </td>`;
     }).join('');
-    return `<tr>
+    const dragCell = reorderOk
+      ? `<td class="prod-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></td>`
+      : `<td class="prod-drag-handle disabled"><i class="fa-solid fa-grip-vertical"></i></td>`;
+    return `<tr class="prod-row" data-prod-id="${prod.id}" ${reorderOk ? `draggable="true" ondragstart="onProductDragStart(event,'${prod.id}')" ondragend="onProductDragEnd(event)" ondragover="onProductDragOver(event)" ondragleave="onProductDragLeave(event)" ondrop="onProductDrop(event,'${prod.id}')"` : ''}>
+      ${dragCell}
       <td style="font-size:12px">${prod.description}</td>
       <td><span class="tag" style="font-size:10px">${getSectionName(prod.section_id)}</span></td>
       <td style="text-align:center;padding:3px 6px">
@@ -1569,7 +1695,7 @@ async function deleteProd(id) {
   await sb.from('product_prices').delete().eq('product_id',id);
   await sb.from('products').delete().eq('id',id);
   D.products=D.products.filter(p=>p.id!==id); delete D.prices[id];
-  renderProducts(); renderField(); toast('Product deleted','ok');
+  renderProducts(); refreshFieldIfVisible(); toast('Product deleted','ok');
 }
 
 function openAddSection() {
@@ -1586,7 +1712,7 @@ async function saveSection() {
   await loadSections();
   closeModal('m-add-section');
   renderProducts();
-  renderField();
+  refreshFieldIfVisible();
   toast('Section added: ' + name, 'ok');
 }
 
@@ -1617,14 +1743,16 @@ async function saveProduct() {
   const prices2={};
   D.suppliers.forEach(sup=>{ const inp=document.getElementById('npp-'+sup.id); if(inp){ const v=parseFloat(inp.value); if(!isNaN(v)&&v>=0) prices2[sup.id]=v; } });
   if(!Object.keys(prices2).length) { toast('Enter at least one supplier price (0 or higher)','err'); return; }
-  const { data: prod, error } = await sb.from('products').insert({ description: desc, section_id: sec, unit_label: unit }).select().single();
+  const inSec = D.products.filter(p => p.section_id === sec);
+  const nextOrder = inSec.reduce((m, p) => Math.max(m, p.sort_order ?? 0), -1) + 1;
+  const { data: prod, error } = await sb.from('products').insert({ description: desc, section_id: sec, unit_label: unit, sort_order: nextOrder }).select().single();
   if (error) { toast(error.message, 'err'); return; }
   const priceRows=Object.entries(prices2).map(([sid,price])=>({ product_id: prod.id, supplier_id: sid, price }));
   if(priceRows.length) {
     const { error: pe } = await sb.from('product_prices').insert(priceRows);
     if (pe) { toast(pe.message, 'err'); return; }
   }
-  await loadProducts(); closeModal('m-add-product'); renderProducts(); renderField();
+  await loadProducts(); closeModal('m-add-product'); renderProducts(); refreshFieldIfVisible();
   toast('Product added','ok');
 }
 
