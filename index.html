@@ -1095,7 +1095,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.6.3';
+const APP_VERSION = '1.6.4';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1227,7 +1227,7 @@ function roleSelectHtml(selected) {
     ['warehouse', 'Warehouse'],
     ['accounting', 'Accounting'],
     ['admin', 'Admin'],
-  ].map(([v, label]) => '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + label + '</option>').join('');
+  ].map(([v, label]) => '<option value="' + v + '"' + (v === normalizeRole(selected) ? ' selected' : '') + '>' + label + '</option>').join('');
 }
 
 function roleBadgeClass(r) {
@@ -3460,7 +3460,7 @@ async function renderUsers() {
     const protectedAdmin = isProtectedAdminUser(u);
     const roleCell = (isMe || protectedAdmin)
       ? '<span class="badge '+roleBadgeClass(u.role)+'">'+escHtml(ROLE_LABELS[u.role]||u.role)+'</span>'
-      : '<select class="form-select" style="padding:4px 8px;font-size:11px;min-width:120px" onchange="changeUserRole(\''+u.id+'\', this.value)">'+roleSelectHtml(u.role)+'</select>';
+      : '<select class="form-select user-role-select" style="padding:4px 8px;font-size:11px;min-width:120px" data-user-id="'+u.id+'" data-prev-role="'+escHtml(normalizeRole(u.role))+'" onfocus="this.dataset.prevRole=this.value" onchange="changeUserRole(\''+u.id+'\', this)">'+roleSelectHtml(u.role)+'</select>';
     const deleteBtn = (!isMe && !protectedAdmin)
       ? '<button class="btn btn-red" onclick="deleteUser(\''+u.id+'\',\''+(u.username||email).replace(/'/g,"\\'")+'\')"><i class="fa-solid fa-trash"></i></button>'
       : '';
@@ -3531,26 +3531,48 @@ async function setUserPasswordFromDetail() {
   } catch (e) { hideLoading(); toast(e.message, 'err'); }
 }
 
-async function changeUserRole(userId, newRole) {
+async function changeUserRole(userId, selectEl) {
   const u = _adminUsersCache.find(x => x.id === userId);
-  if (!u || u.role === newRole) return;
+  if (!u || !selectEl) return;
+  const prevRole = normalizeRole(selectEl.dataset.prevRole || u.role);
+  const newRole = normalizeRole(selectEl.value);
+  if (newRole === prevRole) return;
   if (isProtectedAdminUser(u)) {
     toast('Admin role can only be changed in Supabase', 'err');
+    selectEl.value = prevRole;
+    return;
+  }
+  const roleLabel = ROLE_LABELS[newRole] || newRole;
+  if (!confirm('Change role for "' + (u.username || u.email) + '" to ' + roleLabel + '?')) {
+    selectEl.value = prevRole;
+    return;
+  }
+  showLoading('Updating role…');
+  const { error: profileErr } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
+  if (profileErr) {
+    hideLoading();
+    selectEl.value = prevRole;
+    toast(profileErr.message, 'err');
+    return;
+  }
+  try {
+    await adminApi('update_role', { userId, role: newRole });
+  } catch (e) {
+    console.warn('Role saved in profiles; auth sync via Edge Function failed:', e);
+  }
+  const { data: saved } = await sb.from('profiles').select('role').eq('id', userId).single();
+  const savedRole = normalizeRole(saved?.role);
+  hideLoading();
+  if (savedRole !== newRole) {
+    selectEl.value = prevRole;
+    toast('Role did not stick (still ' + (ROLE_LABELS[savedRole] || savedRole) + '). Redeploy admin-users Edge Function or set role in Supabase SQL.', 'err');
     renderUsers();
     return;
   }
-  if (!confirm('Change role for "' + (u.username || u.email) + '" to ' + newRole + '?')) { renderUsers(); return; }
-  showLoading('Updating role…');
-  try {
-    await adminApi('update_role', { userId, role: newRole });
-    hideLoading(); renderUsers(); toast('Role updated', 'ok');
-  } catch (e) {
-    hideLoading();
-    if (isProtectedAdminUser(u)) { toast('Admin role can only be changed in Supabase', 'err'); renderUsers(); return; }
-    const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
-    if (error) { toast(e.message, 'err'); renderUsers(); return; }
-    renderUsers(); toast('Role updated', 'ok');
-  }
+  u.role = newRole;
+  selectEl.dataset.prevRole = newRole;
+  renderUsers();
+  toast('Role updated to ' + roleLabel + ' ✓', 'ok');
 }
 
 async function toggleLockUser(userId, username, currentlyLocked) {
