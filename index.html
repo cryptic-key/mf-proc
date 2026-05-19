@@ -276,6 +276,12 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .po-acct-pay-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--card2);border:1px solid var(--border2);border-radius:var(--r)}
 .po-acct-pay-bar .btn{font-size:11px;padding:6px 12px}
 .po-acct-pay-bar .btn.active{box-shadow:0 0 0 2px var(--blue)}
+.po-acct-status-banner{text-align:center;padding:14px 16px 10px;font-size:26px;font-weight:800;letter-spacing:.14em;line-height:1.2;border-bottom:1px solid #e5e7eb;margin:0 0 4px}
+.po-acct-status-payable{color:#16a34a}
+.po-acct-status-unpaid{color:#dc2626}
+.po-acct-status-unapproved{color:#dc2626}
+.po-recv-inp{width:64px;text-align:center;font-weight:600;font-size:13px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-family:'IBM Plex Mono',monospace}
+.po-recv-inp:focus{outline:none;border-color:#2e75b6}
 .po-sent-detail{flex:1;overflow-y:auto;padding:16px 20px}
 .po-sent-detail .po-doc{background:#fff;color:#111;box-shadow:0 2px 12px rgba(0,0,0,.25)}
 .po-sent-detail .po-tbl td{background:#fff;color:#222}
@@ -842,6 +848,34 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   </div>
 </div>
 
+<!-- MARK PO PAID CONFIRM -->
+<div class="overlay" id="m-po-paid-confirm">
+  <div class="modal">
+    <div class="modal-title"><i class="fa-solid fa-circle-check" style="color:var(--green);margin-right:8px"></i>Mark as paid</div>
+    <div class="modal-sub">Are you sure you want to mark this PO as paid?</div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeModal('m-po-paid-confirm')">Cancel</button>
+      <button type="button" class="btn btn-green" onclick="applyMarkPOPaid()"><i class="fa-solid fa-check"></i> Yes, mark paid</button>
+    </div>
+  </div>
+</div>
+
+<!-- PO ISSUE -->
+<div class="overlay" id="m-po-issue">
+  <div class="modal">
+    <div class="modal-title"><i class="fa-solid fa-flag" style="color:var(--red);margin-right:8px"></i>Flag issue</div>
+    <div class="modal-sub">State the issue — it will be added to this PO&rsquo;s remarks.</div>
+    <div class="form-group" style="margin-bottom:6px">
+      <label class="form-label">State the Issue</label>
+      <textarea class="form-inp" id="po-issue-text" rows="4" placeholder="Describe the problem…" style="resize:vertical;min-height:88px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeModal('m-po-issue')">Cancel</button>
+      <button type="button" class="btn btn-red" onclick="submitPOIssueDialog()"><i class="fa-solid fa-flag"></i> Flag issue</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1111,7 +1145,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.7.5';
+const APP_VERSION = '1.8.0';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1666,6 +1700,64 @@ function poPayStatusLabel(status) {
   if (status === 'paid') return 'PAID';
   if (status === 'issue') return 'ISSUE';
   return 'UNPAID';
+}
+
+function poArchiveStatusBanner(payStatus) {
+  const st = normalizePOPayStatus(payStatus);
+  if (st === 'paid') return '<div class="po-acct-status-banner po-acct-status-payable">PAYABLE\u003c/div\u003e';
+  if (st === 'issue') return '<div class="po-acct-status-banner po-acct-status-unapproved">UNAPPROVED\u003c/div\u003e';
+  return '<div class="po-acct-status-banner po-acct-status-unpaid">UNPAID\u003c/div\u003e';
+}
+
+let _poPaidConfirm = null;
+let _poIssueDialog = null;
+
+function confirmMarkPOPaid(reqId, supId) {
+  _poPaidConfirm = { reqId, supId };
+  openModal('m-po-paid-confirm');
+}
+
+async function applyMarkPOPaid() {
+  const ctx = _poPaidConfirm;
+  _poPaidConfirm = null;
+  closeModal('m-po-paid-confirm');
+  if (ctx?.reqId) await setPOPayStatus(ctx.reqId, ctx.sid, 'paid');
+}
+
+function openPOIssueDialog(reqId, supId) {
+  _poIssueDialog = { reqId, supId };
+  const inp = document.getElementById('po-issue-text');
+  if (inp) inp.value = '';
+  openModal('m-po-issue');
+  setTimeout(() => inp?.focus(), 80);
+}
+
+async function appendPOIssueRemark(reqId, supId, issueText) {
+  const text = (issueText || '').trim();
+  if (!text) { toast('Please describe the issue', 'err'); return false; }
+  const req = D.requests.find(r => r.id === reqId);
+  if (!req) return false;
+  const state = getReqPOState(req);
+  if (!state[supId]) state[supId] = {};
+  const existing = normalizePORemarks(state[supId].remarks);
+  const stamp = new Date().toLocaleString('en-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const block = '[Issue ' + stamp + ']\n' + text;
+  state[supId].remarks = existing ? existing + '\n\n' + block : block;
+  state[supId].pay_status = 'issue';
+  if (!(await persistPOState(reqId, state))) return false;
+  renderPOSentList();
+  if (_activePOSentKey === poSentKey(reqId, supId)) openPOSent(reqId, supId, true);
+  return true;
+}
+
+async function submitPOIssueDialog() {
+  const ctx = _poIssueDialog;
+  if (!ctx) return;
+  const text = document.getElementById('po-issue-text')?.value || '';
+  if (!(await appendPOIssueRemark(ctx.reqId, ctx.sid, text))) return;
+  _poIssueDialog = null;
+  closeModal('m-po-issue');
+  toast('Issue flagged and added to remarks', 'ok');
 }
 
 function poArchiveTitleHtml(poNum, supName, payStatus) {
@@ -2224,7 +2316,8 @@ async function togglePOIssueFlag(reqId, supId) {
   const req = D.requests.find(r => r.id === reqId);
   if (!req) return;
   const cur = getPOPayStatus(getReqPOState(req)[supId]);
-  await setPOPayStatus(reqId, supId, cur === 'issue' ? 'unpaid' : 'issue');
+  if (cur === 'issue') await setPOPayStatus(reqId, supId, 'unpaid');
+  else openPOIssueDialog(reqId, supId);
 }
 
 async function setPOPayStatus(reqId, supId, payStatus) {
@@ -2253,8 +2346,8 @@ function poAccountingPayBar(reqId, supId, current) {
   return '<div class="po-acct-pay-bar">'
     + '<span style="font-size:11px;font-weight:600;color:var(--text2);margin-right:4px">Payment:</span>'
     + '<button type="button" class="btn' + (cur === 'unpaid' ? ' active' : '') + '" onclick="setPOPayStatus(\'' + reqId + '\',\'' + supId + '\',\'unpaid\')">Unpaid</button>'
-    + '<button type="button" class="btn btn-green' + (cur === 'paid' ? ' active' : '') + '" onclick="setPOPayStatus(\'' + reqId + '\',\'' + supId + '\',\'paid\')">Paid</button>'
-    + '<button type="button" class="btn btn-red' + (cur === 'issue' ? ' active' : '') + '" onclick="setPOPayStatus(\'' + reqId + '\',\'' + supId + '\',\'issue\')"><i class="fa-solid fa-flag"></i> Issue</button>'
+    + '<button type="button" class="btn btn-green' + (cur === 'paid' ? ' active' : '') + '" onclick="confirmMarkPOPaid(\'' + reqId + '\',\'' + supId + '\')">Paid</button>'
+    + '<button type="button" class="btn btn-red' + (cur === 'issue' ? ' active' : '') + '" onclick="openPOIssueDialog(\'' + reqId + '\',\'' + supId + '\')"><i class="fa-solid fa-flag"></i> Issue</button>'
     + '</div>';
 }
 
@@ -2441,7 +2534,7 @@ function aggregateJobsiteAudit(poRows) {
       const rawP = (D.prices[prod.id]?.[asSup]?.price) || 0;
       const { label: unit, divisor } = getUnitInfo(prod);
       const line = (rawP / divisor) * item.qty;
-      const key = (item.product_id || item.description) + '\x00' + rawP + '\x00' + unit;
+      const key = (item.product_id || item.description || '').trim().toLowerCase();
       if (!agg[key]) {
         agg[key] = {
           desc: item.description,
@@ -2452,8 +2545,9 @@ function aggregateJobsiteAudit(poRows) {
           sectionId: prod.section_id || '_other'
         };
       }
-      agg[key].qty += item.qty;
+      agg[key].qty += parseFloat(item.qty) || 0;
       agg[key].line += line;
+      if (agg[key].qty > 0) agg[key].unitP = agg[key].line / agg[key].qty;
     });
   });
   const rows = Object.values(agg);
@@ -2606,7 +2700,7 @@ function openPOSent(reqId, supId, skipList) {
       <div style="font-size:14px;font-weight:600;margin-top:10px">${poTitle}</div>
     </div>
     ${poAccountingPayBar(reqId, supId, paySt)}
-    ${buildPOHTML(req, bySup[supId], getSupName(supId), supId, true)}`;
+    ${buildPOHTML(req, bySup[supId], getSupName(supId), supId, true, roleCfg().canEditPOPayStatus)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2789,6 +2883,13 @@ function renderFieldPOSection(req, supId, items, poSt, sent) {
     rows += '<td style="text-align:center"><button type="button" class="btn btn-green field-recv-all" onclick="receiveAllFieldItem(\'' + req.id + '\',\'' + item.id + '\',' + ordered + ')"><i class="fa-solid fa-check-double"></i> Received all</button></td></tr>';
   });
   return '<div class="field-po-block"><div class="field-po-hdr"><div class="field-po-hdr-title">' + poTitle + '</div>' + sentMeta + '</div><div style="overflow-x:auto"><table class="field-req-items" style="width:100%;border-collapse:collapse"><thead><tr><th>Description</th><th style="text-align:center;width:72px">Ordered</th><th style="text-align:center;width:48px">Per</th><th style="text-align:center;width:80px">Qty received</th><th style="text-align:center;width:80px">Back ordered</th><th style="text-align:center;width:110px"></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+}
+
+async function updateArchiveReceiving(inp) {
+  inp.dataset.ordered = inp.dataset.ordered || '0';
+  await updateFieldReceiving(inp, 'qty_received');
+  const { reqid, supid } = inp.dataset;
+  if (_activePOSentKey === poSentKey(reqid, supid)) openPOSent(reqid, supid, true);
 }
 
 async function updateFieldReceiving(inp, field) {
@@ -3009,7 +3110,7 @@ function buildBySup(req) {
     const {label:unit,divisor}=getUnitInfo(prod);
     const line=(rawP/divisor)*item.qty;
     if(!by[asSup]) by[asSup]={items:[],total:0};
-    by[asSup].items.push({desc:item.description,qty:item.qty,qtyReceived:fieldQtyVal(item,'qty_received'),unitP:rawP,unitLabel:unit,line});
+    by[asSup].items.push({itemId:item.id,desc:item.description,qty:item.qty,qtyReceived:fieldQtyVal(item,'qty_received'),unitP:rawP,unitLabel:unit,line});
     by[asSup].total+=line;
   });
   return by;
@@ -3178,7 +3279,7 @@ async function selectPOSupBtn(btn) {
   if(wrap) wrap.innerHTML=buildPOHTML(req,bySup[supId],getSupName(supId),supId);
 }
 
-function buildPOHTML(req, data, supName, supId, readOnly) {
+function buildPOHTML(req, data, supName, supId, readOnly, archiveAccounting) {
   if(!data||!data.items.length) return '<p style="color:var(--text3);padding:12px">No items for this supplier.</p>';
   const hst=(D.settings.hst||13)/100;
   const sub=data.total, tax=sub*hst, total=sub+tax;
@@ -3189,8 +3290,16 @@ function buildPOHTML(req, data, supName, supId, readOnly) {
   const poNum = poSt.po_number || '';
   const remarks = normalizePORemarks(poSt.remarks);
   const sent = !!poSt.sent;
+  const paySt = getPOPayStatus(poSt);
+  const editRecv = !!(readOnly && archiveAccounting);
+  const statusBanner = readOnly ? poArchiveStatusBanner(paySt) : '';
+  const recvCell = (it) => {
+    if (!editRecv) return '<td style="text-align:center;font-weight:600">' + (it.qtyReceived != null ? it.qtyReceived : 0) + '</td>';
+    return '<td style="text-align:center"><input type="number" class="po-recv-inp" min="0" step="any" value="' + (it.qtyReceived != null ? it.qtyReceived : 0) + '" data-reqid="' + req.id + '" data-supid="' + supId + '" data-itemid="' + it.itemId + '" data-ordered="' + it.qty + '" onchange="updateArchiveReceiving(this)"></td>';
+  };
   const logoHTML=b.logo?`<img src="${b.logo}" alt="logo" style="max-height:44px;max-width:180px;object-fit:contain">`:`<div style="font-size:20px;font-weight:700;color:#0D2137">${b.name1||'Mayfair'}<span style="color:#c07800">${b.name2||'Electric'}</span> Ltd.</div>`;
   return `<div class="po-doc" id="po-print">
+    ${statusBanner}
     <div class="po-doc-hdr">
       <div>${logoHTML}<div class="po-doc-meta"><strong>Project:</strong> ${req.project}<br><strong>Date required:</strong> ${dn}<br><strong>PO date:</strong> ${today}${req.notes?`<br><strong>Notes:</strong> ${req.notes}`:''}</div></div>
       <div style="text-align:right">
@@ -3206,7 +3315,7 @@ function buildPOHTML(req, data, supName, supId, readOnly) {
     </div>
     <table class="po-tbl">
       ${readOnly ? `<thead><tr><th style="width:38%">Description</th><th style="width:11%;text-align:center">QTY Ordered</th><th style="width:11%;text-align:center">QTY Received</th><th style="width:18%;text-align:right">Unit price</th><th style="width:22%;text-align:right">Line total</th></tr></thead>
-      <tbody>${data.items.map(it=>`<tr><td>${it.desc}</td><td style="text-align:center;font-weight:600">${it.qty}</td><td style="text-align:center;font-weight:600">${it.qtyReceived != null ? it.qtyReceived : 0}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace">$${fmt(it.unitP)}${it.unitLabel||''}</td><td style="text-align:right;font-weight:600;font-family:'IBM Plex Mono',monospace">$${fmt(it.line)}</td></tr>`).join('')}</tbody>`
+      <tbody>${data.items.map(it=>'<tr><td>'+it.desc+'</td><td style="text-align:center;font-weight:600">'+it.qty+'</td>'+recvCell(it)+'<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace">$'+fmt(it.unitP)+(it.unitLabel||'')+'</td><td style="text-align:right;font-weight:600;font-family:\'IBM Plex Mono\',monospace">$'+fmt(it.line)+'</td></tr>').join('')}</tbody>`
       : `<thead><tr><th style="width:52%">Description</th><th style="width:10%;text-align:center">QTY</th><th style="width:18%;text-align:right">Unit price</th><th style="width:20%;text-align:right">Line total</th></tr></thead>
       <tbody>${data.items.map(it=>`<tr><td>${it.desc}</td><td style="text-align:center;font-weight:600">${it.qty}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace">$${fmt(it.unitP)}${it.unitLabel||''}</td><td style="text-align:right;font-weight:600;font-family:'IBM Plex Mono',monospace">$${fmt(it.line)}</td></tr>`).join('')}</tbody>`}
     </table>
