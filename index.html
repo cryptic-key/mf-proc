@@ -118,7 +118,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .col-hdr{background:var(--card);border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 90px;position:sticky;top:0;z-index:5;flex-shrink:0}
 .col-hdr span{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:7px 16px}
 .col-hdr span:last-child{text-align:center}
-.sec-hdr{background:var(--navy2);color:rgba(255,255,255,.8);padding:7px 16px;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;position:sticky;top:30px;z-index:4;border-bottom:1px solid var(--border)}
+.sec-hdr{color:rgba(255,255,255,.9);padding:7px 16px;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;position:sticky;top:30px;z-index:4;border-bottom:1px solid var(--border);border-left:4px solid var(--sec-accent,#2e75b6);background:linear-gradient(90deg,color-mix(in srgb,var(--sec-accent,#2e75b6) 22%,var(--navy2)) 0%,var(--navy2) 45%)}
 .mat-row{display:grid;grid-template-columns:1fr 90px;border-bottom:1px solid var(--border);align-items:center;min-height:38px;transition:background .1s}
 .mat-row:hover{background:var(--card2)}
 .mat-row.has-qty{background:#0d1e00}
@@ -227,6 +227,19 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .prod-drag-handle:active{cursor:grabbing}
 .prod-drag-handle.disabled{opacity:.25;cursor:not-allowed}
 .prod-reorder-hint{font-size:11px;color:var(--text3);margin:-6px 0 10px;font-weight:400}
+.prod-sec-divider td{padding:0!important;border:none!important;background:transparent!important}
+.prod-sec-divider:hover td{background:transparent!important}
+.prod-sec-divider-inner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:3px solid var(--sec-accent,#2e75b6);border-bottom:1px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--sec-accent,#2e75b6) 28%,var(--navy2)) 0%,var(--navy2) 50%)}
+.prod-sec-stripe{width:4px;height:22px;border-radius:2px;background:var(--sec-accent,#2e75b6);flex-shrink:0}
+.prod-sec-divider-name{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#fff;flex:1}
+.prod-sec-meta{font-size:10px;color:rgba(255,255,255,.55);font-weight:500}
+.sec-color-edit{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:10px;color:rgba(255,255,255,.5);cursor:pointer}
+.sec-color-edit input[type=color]{width:26px;height:26px;padding:0;border:2px solid rgba(255,255,255,.25);border-radius:6px;background:transparent;cursor:pointer}
+.sec-color-edit input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+.sec-color-edit input[type=color]::-webkit-color-swatch{border:none;border-radius:3px}
+.sec-color-swatch{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.3);vertical-align:middle}
+.nsec-color-row{display:flex;align-items:center;gap:12px;margin-top:6px}
+.nsec-color-row input[type=color]{width:40px;height:36px;border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;background:var(--card2)}
 .ep-inp{width:78px;text-align:right;font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;background:var(--card2);color:var(--text);font-family:'IBM Plex Mono',monospace}
 .ep-inp:focus{border-color:var(--blue2);outline:none}
 .sup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
@@ -397,6 +410,11 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
       <label class="form-label">Section Name</label>
       <input class="form-inp" id="nsec-name" placeholder="e.g. Conduit & Fittings"
         onkeydown="if(event.key==='Enter')saveSection()">
+      <label class="form-label" style="margin-top:12px">Section color</label>
+      <div class="nsec-color-row">
+        <input type="color" id="nsec-color" value="#2e75b6" title="Divider color in Admin → Products">
+        <span style="font-size:11px;color:var(--text3)">Shown as a colored bar above products in that section.</span>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('m-add-section')">Cancel</button>
@@ -733,7 +751,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -987,6 +1005,16 @@ async function saveSetting(key, value) {
 function getSupName(id) { const s = D.suppliers.find(x=>x.id===id); return s ? s.name : id; }
 function getSupId(name) { const s = D.suppliers.find(x=>x.name===name); return s ? s.id : null; }
 function getSectionName(id) { const s = D.sections.find(x=>x.id===id); return s ? s.name : ''; }
+const SECTION_PALETTE = ['#2e75b6','#1a7a4a','#8e44ad','#c0392b','#d68910','#16a085','#5d6d7e','#2874a6'];
+function getSectionColor(sec) {
+  if (!sec) return SECTION_PALETTE[0];
+  if (sec.color && /^#[0-9a-fA-F]{6}$/.test(sec.color)) return sec.color;
+  const i = D.sections.findIndex(s => s.id === sec.id);
+  return SECTION_PALETTE[(i < 0 ? 0 : i) % SECTION_PALETTE.length];
+}
+function defaultSectionColor() {
+  return SECTION_PALETTE[D.sections.length % SECTION_PALETTE.length];
+}
 function prodById(id) { return D.products.find(p=>p.id===id); }
 function fmt(n) { return (+n).toLocaleString('en', {minimumFractionDigits:2,maximumFractionDigits:2}); }
 
@@ -1076,6 +1104,7 @@ function renderField() {
     sb2.appendChild(si);
     if(fieldSecFilter&&fieldSecFilter!==sec.id) return;
     const hdr=document.createElement('div'); hdr.className='sec-hdr'; hdr.id='shdr-'+sec.id; hdr.textContent=sec.name;
+    hdr.style.setProperty('--sec-accent', getSectionColor(sec));
     rows.appendChild(hdr);
     prods.forEach(prod=>{
       const row=document.createElement('div');
@@ -1548,7 +1577,7 @@ async function onProductDrop(e, targetProdId) {
   const dragProd = prodById(_dragProdId), targetProd = prodById(targetProdId);
   if (!dragProd || !targetProd) return;
   if (dragProd.section_id !== targetProd.section_id) {
-    toast('Drag within the same section only', 'err');
+    toast('Drag only within the same colored section block', 'err');
     return;
   }
   let inSec = sortProductsList(D.products.filter(p => p.section_id === dragProd.section_id));
@@ -1574,6 +1603,88 @@ async function onProductDrop(e, targetProdId) {
   }
 }
 
+function productRowHtml(prod, reorderOk) {
+  const supCells = D.suppliers.map(sup => {
+    const safeId = `${prod.id}__${sup.id.replace(/-/g,'_')}`;
+    const priceInfo = D.prices[prod.id]?.[sup.id];
+    const price = priceInfo?.price;
+    const note = priceInfo?.note || '';
+    const hasNote = !!note;
+    const escapedNote = note.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return `<td style="text-align:right;padding:3px 8px">
+      <div class="price-cell-wrap">
+        <input class="ep-inp" type="number" step="0.01" min="0"
+          value="${price!==undefined?price:''}" placeholder="—"
+          data-prod="${prod.id}" data-sup="${sup.id}"
+          onchange="updatePriceBtn(this)">
+        <button class="note-btn${hasNote?' has-note':''}" id="nbtn-${safeId}"
+          data-prod="${prod.id}" data-sup="${sup.id}" data-sid="${safeId}"
+          onclick="toggleNotePopupBtn(this,event)" title="${hasNote?escapedNote:'Add note'}">
+          ${hasNote?'<i class="fa-solid fa-circle-info" style="font-size:8px"></i>':'+'}
+          ${hasNote?'<span class="note-tooltip">'+escapedNote+'</span>':''}
+        </button>
+        <div class="note-popup" id="npop-${safeId}">
+          <textarea rows="2" placeholder="e.g. price valid until June…" id="ntxt-${safeId}">${note}</textarea>
+          <div class="note-popup-actions">
+            <button class="btn" style="padding:3px 8px;font-size:11px" data-sid="${safeId}" onclick="closeNotePopupBtn(this)">Cancel</button>
+            <button class="btn btn-green" style="padding:3px 8px;font-size:11px" data-prod="${prod.id}" data-sup="${sup.id}" data-sid="${safeId}" onclick="saveNoteBtn(this)">Save</button>
+          </div>
+        </div>
+      </div>
+    </td>`;
+  }).join('');
+  const dragCell = reorderOk
+    ? `<td class="prod-drag-handle" title="Drag to reorder within this section"><i class="fa-solid fa-grip-vertical"></i></td>`
+    : `<td class="prod-drag-handle disabled"><i class="fa-solid fa-grip-vertical"></i></td>`;
+  return `<tr class="prod-row" data-prod-id="${prod.id}" data-section-id="${prod.section_id}" ${reorderOk ? `draggable="true" ondragstart="onProductDragStart(event,'${prod.id}')" ondragend="onProductDragEnd(event)" ondragover="onProductDragOver(event)" ondragleave="onProductDragLeave(event)" ondrop="onProductDrop(event,'${prod.id}')"` : ''}>
+    ${dragCell}
+    <td style="font-size:12px">${escHtml(prod.description)}</td>
+    <td style="text-align:center;padding:3px 6px">
+      <input class="ep-inp" type="text" value="${escHtml(prod.unit_label||'')}" placeholder="ea"
+        style="width:60px;text-align:center;font-family:'Inter',sans-serif;font-size:11px"
+        data-prod="${prod.id}" onchange="updateUnitBtn(this)" title="e.g. ea, 100, ft, reel">
+    </td>
+    ${supCells}
+    <td style="text-align:center">
+      <button class="btn btn-red" style="padding:3px 7px;font-size:11px" onclick="deleteProd('${prod.id}')"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  </tr>`;
+}
+
+function sectionDividerRow(sec, itemCount, colCount) {
+  const color = getSectionColor(sec);
+  return `<tr class="prod-sec-divider" data-section-id="${sec.id}" style="--sec-accent:${color}">
+    <td colspan="${colCount}">
+      <div class="prod-sec-divider-inner">
+        <span class="prod-sec-stripe"></span>
+        <span class="prod-sec-divider-name">${escHtml(sec.name)}</span>
+        <span class="prod-sec-meta">${itemCount} product${itemCount===1?'':'s'} · drag rows below within this block</span>
+        <label class="sec-color-edit" title="Change section color">
+          <i class="fa-solid fa-palette"></i>
+          <input type="color" value="${color}" onchange="saveSectionColor('${sec.id}',this.value)" onclick="event.stopPropagation()">
+        </label>
+      </div>
+    </td>
+  </tr>`;
+}
+
+async function saveSectionColor(secId, color) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) return;
+  const { error } = await sb.from('sections').update({ color }).eq('id', secId);
+  if (error) {
+    const msg = (error.message || '').toLowerCase().includes('color')
+      ? 'Add the color column in Supabase (run 20260519000004_sections_color.sql)'
+      : error.message;
+    toast(msg, 'err');
+    return;
+  }
+  const sec = D.sections.find(s => s.id === secId);
+  if (sec) sec.color = color;
+  renderProducts();
+  refreshFieldIfVisible();
+  toast('Section color saved', 'ok');
+}
+
 function renderProducts() {
   const filterSec=document.getElementById('filter-asec').value;
   const searchQ=(document.getElementById('prod-search')?.value||'').toLowerCase().trim();
@@ -1586,67 +1697,34 @@ function renderProducts() {
   prods = sortProductsList(prods);
   const reorderOk = canReorderProducts();
   const hintEl = document.getElementById('prod-reorder-hint');
+  const colCount = 4 + D.suppliers.length;
   if (hintEl) {
     hintEl.textContent = reorderOk
-      ? (filterSec ? 'Default: section → name. Drag rows to set custom order in this section.' : 'Default: section → name. Drag rows to reorder (same section only).')
-      : 'Clear search to drag and reorder products.';
+      ? 'Products are grouped by colored section headers. Drag the ⋮⋮ handle only within the same colored block.'
+      : 'Clear search to drag and reorder products within each section.';
   }
   document.getElementById('prod-count').textContent=prods.length+' items';
   document.getElementById('prod-thead').innerHTML=`<tr>
     <th style="width:28px" title="Drag to reorder"></th>
-    <th>Description</th><th>Section</th><th style="text-align:center">Per</th>
+    <th>Description</th><th style="text-align:center">Per</th>
     ${D.suppliers.map(s=>`<th style="text-align:right;font-size:10px;min-width:92px">${s.name}</th>`).join('')}
     <th style="text-align:center;width:55px">Del</th>
   </tr>`;
-  document.getElementById('prod-tbody').innerHTML=prods.map(prod=>{
-    const notes2=D.prices[prod.id]||{};
-    const supCells=D.suppliers.map(sup=>{
-      const safeId=`${prod.id}__${sup.id.replace(/-/g,'_')}`;
-      const priceInfo=D.prices[prod.id]?.[sup.id];
-      const price=priceInfo?.price;
-      const note=priceInfo?.note||'';
-      const hasNote=!!note;
-      const escapedNote=note.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-      return `<td style="text-align:right;padding:3px 8px">
-        <div class="price-cell-wrap">
-          <input class="ep-inp" type="number" step="0.01" min="0"
-            value="${price!==undefined?price:''}" placeholder="—"
-            data-prod="${prod.id}" data-sup="${sup.id}"
-            onchange="updatePriceBtn(this)">
-          <button class="note-btn${hasNote?' has-note':''}" id="nbtn-${safeId}"
-            data-prod="${prod.id}" data-sup="${sup.id}" data-sid="${safeId}"
-            onclick="toggleNotePopupBtn(this,event)" title="${hasNote?escapedNote:'Add note'}">
-            ${hasNote?'<i class="fa-solid fa-circle-info" style="font-size:8px"></i>':'+'}
-            ${hasNote?'<span class="note-tooltip">'+escapedNote+'</span>':''}
-          </button>
-          <div class="note-popup" id="npop-${safeId}">
-            <textarea rows="2" placeholder="e.g. price valid until June…" id="ntxt-${safeId}">${note}</textarea>
-            <div class="note-popup-actions">
-              <button class="btn" style="padding:3px 8px;font-size:11px" data-sid="${safeId}" onclick="closeNotePopupBtn(this)">Cancel</button>
-              <button class="btn btn-green" style="padding:3px 8px;font-size:11px" data-prod="${prod.id}" data-sup="${sup.id}" data-sid="${safeId}" onclick="saveNoteBtn(this)">Save</button>
-            </div>
-          </div>
-        </div>
-      </td>`;
-    }).join('');
-    const dragCell = reorderOk
-      ? `<td class="prod-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></td>`
-      : `<td class="prod-drag-handle disabled"><i class="fa-solid fa-grip-vertical"></i></td>`;
-    return `<tr class="prod-row" data-prod-id="${prod.id}" ${reorderOk ? `draggable="true" ondragstart="onProductDragStart(event,'${prod.id}')" ondragend="onProductDragEnd(event)" ondragover="onProductDragOver(event)" ondragleave="onProductDragLeave(event)" ondrop="onProductDrop(event,'${prod.id}')"` : ''}>
-      ${dragCell}
-      <td style="font-size:12px">${prod.description}</td>
-      <td><span class="tag" style="font-size:10px">${getSectionName(prod.section_id)}</span></td>
-      <td style="text-align:center;padding:3px 6px">
-        <input class="ep-inp" type="text" value="${prod.unit_label||''}" placeholder="ea"
-          style="width:60px;text-align:center;font-family:'Inter',sans-serif;font-size:11px"
-          data-prod="${prod.id}" onchange="updateUnitBtn(this)" title="e.g. ea, 100, ft, reel">
-      </td>
-      ${supCells}
-      <td style="text-align:center">
-        <button class="btn btn-red" style="padding:3px 7px;font-size:11px" onclick="deleteProd('${prod.id}')"><i class="fa-solid fa-trash"></i></button>
-      </td>
-    </tr>`;
-  }).join('');
+  let html = '';
+  D.sections.forEach(sec => {
+    const secProds = prods.filter(p => p.section_id === sec.id);
+    if (!secProds.length) return;
+    html += sectionDividerRow(sec, secProds.length, colCount);
+    secProds.forEach(p => { html += productRowHtml(p, reorderOk); });
+  });
+  const orphan = prods.filter(p => !D.sections.some(s => s.id === p.section_id));
+  if (orphan.length) {
+    html += `<tr class="prod-sec-divider" style="--sec-accent:#5d6d7e"><td colspan="${colCount}"><div class="prod-sec-divider-inner">
+      <span class="prod-sec-stripe"></span><span class="prod-sec-divider-name">No section</span>
+      <span class="prod-sec-meta">${orphan.length} product(s)</span></div></td></tr>`;
+    orphan.forEach(p => { html += productRowHtml(p, reorderOk); });
+  }
+  document.getElementById('prod-tbody').innerHTML = html;
 }
 
 async function updatePriceBtn(inp) {
@@ -1700,6 +1778,8 @@ async function deleteProd(id) {
 
 function openAddSection() {
   document.getElementById('nsec-name').value = '';
+  const colorEl = document.getElementById('nsec-color');
+  if (colorEl) colorEl.value = defaultSectionColor();
   openModal('m-add-section');
   setTimeout(() => document.getElementById('nsec-name').focus(), 80);
 }
@@ -1707,13 +1787,19 @@ function openAddSection() {
 async function saveSection() {
   const name = document.getElementById('nsec-name').value.trim();
   if (!name) { toast('Enter a section name', 'err'); return; }
-  const { data, error } = await sb.from('sections').insert({ name, sort_order: D.sections.length }).select().single();
+  const color = document.getElementById('nsec-color')?.value || defaultSectionColor();
+  let colorNote = '';
+  let { error } = await sb.from('sections').insert({ name, sort_order: D.sections.length, color }).select().single();
+  if (error && (error.message || '').toLowerCase().includes('color')) {
+    ({ error } = await sb.from('sections').insert({ name, sort_order: D.sections.length }).select().single());
+    colorNote = ' (run sections color SQL in Supabase to save custom colors)';
+  }
   if (error) { toast(error.message, 'err'); return; }
   await loadSections();
   closeModal('m-add-section');
   renderProducts();
   refreshFieldIfVisible();
-  toast('Section added: ' + name, 'ok');
+  toast('Section added: ' + name + colorNote, 'ok');
 }
 
 async function openAddProduct() {
