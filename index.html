@@ -380,6 +380,22 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   </div>
 </div>
 
+<div class="overlay" id="m-add-section">
+  <div class="modal">
+    <div class="modal-title">Add Section</div>
+    <div class="modal-sub">Products are grouped by section (e.g. Conduit, Wire, Boxes).</div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label">Section Name</label>
+      <input class="form-inp" id="nsec-name" placeholder="e.g. Conduit & Fittings"
+        onkeydown="if(event.key==='Enter')saveSection()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('m-add-section')">Cancel</button>
+      <button class="btn btn-green" onclick="saveSection()"><i class="fa-solid fa-plus"></i> Add Section</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="m-add-supplier">
   <div class="modal">
     <div class="modal-title">Add Supplier</div>
@@ -606,9 +622,9 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
                 <select class="form-select" id="filter-asec" onchange="renderProducts()" style="font-size:12px;padding:6px 10px">
                   <option value="">All sections</option>
                 </select>
+                <button class="btn" onclick="openAddSection()"><i class="fa-solid fa-folder-plus"></i> Add Section</button>
                 <button class="btn btn-green" onclick="openAddProduct()"><i class="fa-solid fa-plus"></i> Add Product</button>
               </div>
-            </div>
             <div style="overflow-x:auto">
               <table class="prod-tbl" id="prod-tbl">
                 <thead id="prod-thead"></thead>
@@ -708,6 +724,7 @@ const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
 const _sc = (window.supabase || window.Supabase);
 const sb = _sc.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ADMIN_FN = 'swift-handler'; // must match Supabase Edge Functions name exactly
 let _adminUsersCache = [];
 let _detailUserId = null;
 
@@ -717,14 +734,20 @@ async function adminApi(action, payload = {}) {
   if (window.location.protocol === 'file:') {
     throw new Error('Open the app via http:// (e.g. Live Server), not as a file:// link — browsers block admin API from local files.');
   }
-  const { data, error } = await sb.functions.invoke('admin-users', {
+  const { data, error } = await sb.functions.invoke(ADMIN_FN, {
     body: { action, ...payload },
   });
   if (data?.error) throw new Error(data.error);
   if (error) {
-    const msg = error.message || String(error);
-    if (/failed to fetch|failed to send|network|edge function/i.test(msg)) {
-      throw new Error('Admin API not reachable. Deploy the admin-users Edge Function in Supabase (Edge Functions).');
+    let msg = error.message || String(error);
+    if (error.context && typeof error.context.json === 'function') {
+      try {
+        const body = await error.context.json();
+        if (body?.error) msg = body.error;
+      } catch (_) {}
+    }
+    if (/failed to fetch|failed to send|networkerror/i.test(msg)) {
+      throw new Error('Cannot reach ' + ADMIN_FN + '. Check Supabase → Edge Functions → name matches ADMIN_FN in index.html → Deploy. Use https://cryptic-key.github.io/mf-proc/');
     }
     throw new Error(msg);
   }
@@ -1540,7 +1563,30 @@ async function deleteProd(id) {
   renderProducts(); renderField(); toast('Product deleted','ok');
 }
 
+function openAddSection() {
+  document.getElementById('nsec-name').value = '';
+  openModal('m-add-section');
+  setTimeout(() => document.getElementById('nsec-name').focus(), 80);
+}
+
+async function saveSection() {
+  const name = document.getElementById('nsec-name').value.trim();
+  if (!name) { toast('Enter a section name', 'err'); return; }
+  const { data, error } = await sb.from('sections').insert({ name, sort_order: D.sections.length }).select().single();
+  if (error) { toast(error.message, 'err'); return; }
+  await loadSections();
+  closeModal('m-add-section');
+  renderProducts();
+  renderField();
+  toast('Section added: ' + name, 'ok');
+}
+
 async function openAddProduct() {
+  if (!D.sections.length) {
+    toast('Add a section first (click Add Section)', 'err');
+    openAddSection();
+    return;
+  }
   const sel=document.getElementById('np-section');
   sel.innerHTML=D.sections.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   document.getElementById('np-prices').innerHTML=`
@@ -1556,18 +1602,21 @@ async function openAddProduct() {
 async function saveProduct() {
   const desc=document.getElementById('np-desc').value.trim();
   const sec=document.getElementById('np-section').value;
-  const unit=document.getElementById('np-unit').value.trim();
+  const unit=document.getElementById('np-unit').value.trim() || 'ea';
   if(!desc) { toast('Enter a description','err'); return; }
+  if(!sec) { toast('Select a section (or click Add Section first)','err'); return; }
   const prices2={};
-  D.suppliers.forEach(sup=>{ const inp=document.getElementById('npp-'+sup.id); if(inp){ const v=parseFloat(inp.value); if(!isNaN(v)&&v>0) prices2[sup.id]=v; } });
-  if(!Object.keys(prices2).length) { toast('Enter at least one supplier price','err'); return; }
-  const {data:prod}=await sb.from('products').insert({description:desc,section_id:sec,unit_label:unit}).select().single();
-  if(prod) {
-    const priceRows=Object.entries(prices2).map(([sid,price])=>{return {product_id:prod.id,supplier_id:sid,price};});
-    if(priceRows.length) await sb.from('product_prices').insert(priceRows);
-    await loadProducts(); closeModal('m-add-product'); renderProducts(); renderField();
-    toast('Product added','ok');
+  D.suppliers.forEach(sup=>{ const inp=document.getElementById('npp-'+sup.id); if(inp){ const v=parseFloat(inp.value); if(!isNaN(v)&&v>=0) prices2[sup.id]=v; } });
+  if(!Object.keys(prices2).length) { toast('Enter at least one supplier price (0 or higher)','err'); return; }
+  const { data: prod, error } = await sb.from('products').insert({ description: desc, section_id: sec, unit_label: unit }).select().single();
+  if (error) { toast(error.message, 'err'); return; }
+  const priceRows=Object.entries(prices2).map(([sid,price])=>({ product_id: prod.id, supplier_id: sid, price }));
+  if(priceRows.length) {
+    const { error: pe } = await sb.from('product_prices').insert(priceRows);
+    if (pe) { toast(pe.message, 'err'); return; }
   }
+  await loadProducts(); closeModal('m-add-product'); renderProducts(); renderField();
+  toast('Product added','ok');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
