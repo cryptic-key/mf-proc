@@ -241,6 +241,9 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 .po-sent-item.active{border-left-color:var(--blue);background:var(--blue-lt)}
 .po-sent-po-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.35}
 .po-sent-po-sub{font-size:11px;color:var(--text3);margin-top:5px;font-weight:500;letter-spacing:.02em}
+.po-sent-po-sub.po-st-sent{color:var(--text3)}
+.po-sent-po-sub.po-st-partial{color:var(--amber,#e8a838)}
+.po-sent-po-sub.po-st-received{color:var(--green,#3ecf8e)}
 .po-sent-detail{flex:1;overflow-y:auto;padding:16px 20px}
 .po-tots{width:220px;font-size:12px}
 .po-tot-row{display:flex;justify-content:space-between;padding:4px 0;color:#555;border-bottom:1px solid #eee}
@@ -608,7 +611,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
         <i class="fa-solid fa-inbox"></i> Requests
         <span id="req-badge" class="badge badge-amber" style="display:none;margin-left:4px"></span>
       </button>
-      <button class="ttab" id="tab-po-sent" onclick="switchView('po-sent')"><i class="fa-solid fa-paper-plane"></i> PO Sent</button>
+      <button class="ttab" id="tab-po-sent" onclick="switchView('po-sent')"><i class="fa-solid fa-box-archive"></i> PO Archive</button>
       <button class="ttab" id="tab-panel" onclick="switchView('panel')"><i class="fa-solid fa-gear"></i> Admin Panel</button>
     </div>
     <div class="search-wrap" id="search-area" style="display:none;margin-left:12px">
@@ -691,7 +694,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
       </div>
     </div>
 
-    <!-- PO SENT -->
+    <!-- PO Archive -->
     <div class="view" id="view-po-sent">
       <div class="po-sent-layout">
         <div class="po-sent-sidebar">
@@ -704,7 +707,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
           <div class="po-sent-scroll" id="po-sent-list"></div>
         </div>
         <div class="po-sent-detail" id="po-sent-detail">
-          <div class="empty-state"><i class="fa-solid fa-paper-plane"></i><p>Select a sent PO to review.</p></div>
+          <div class="empty-state"><i class="fa-solid fa-box-archive"></i><p>Select a PO from the archive to review.</p></div>
         </div>
       </div>
     </div>
@@ -849,7 +852,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.7';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1177,7 +1180,21 @@ async function loadSettings() {
     if (s.key === 'brand_name1') D.settings.brand_name1 = s.value;
     if (s.key === 'brand_name2') D.settings.brand_name2 = s.value;
     if (s.key === 'brand_logo') D.settings.brand_logo = s.value;
+    if (s.key === 'jobsite_audit_remarks') {
+      try { _jobsiteAuditRemarks = JSON.parse(s.value) || {}; } catch { _jobsiteAuditRemarks = {}; }
+    }
   });
+}
+
+function getJobsiteAuditRemarks(jobName) {
+  return normalizePORemarks(_jobsiteAuditRemarks[jobName]);
+}
+
+async function saveJobsiteAuditRemarks(inp) {
+  const jobName = decodeURIComponent(inp?.dataset?.job || '');
+  if (!jobName) return;
+  _jobsiteAuditRemarks[jobName] = normalizePORemarks(inp.value);
+  await saveSetting('jobsite_audit_remarks', JSON.stringify(_jobsiteAuditRemarks));
 }
 
 async function saveSetting(key, value) {
@@ -1590,6 +1607,7 @@ function listSentPOs() {
 
 let _activePOSentKey = null;
 let _activeJobsiteAuditJob = null;
+let _jobsiteAuditRemarks = {};
 let _poSentJobFilter = '';
 
 function getJobNameForReq(req) {
@@ -1606,6 +1624,29 @@ function formatPOSentAt(iso) {
   const date = d.toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
   const time = d.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
   return `${date}, ${time}`;
+}
+
+function computePOReceivingStatus(req, supId) {
+  const items = (buildFieldPOGroups(req)[supId] || []).filter(i => (parseFloat(i.qty) || 0) > 0);
+  if (!items.length) return 'sent';
+  let anyProgress = false;
+  let allFullyReceived = true;
+  items.forEach(item => {
+    const ord = parseFloat(item.qty) || 0;
+    const recv = fieldQtyVal(item, 'qty_received');
+    const back = fieldQtyVal(item, 'qty_backordered');
+    if (recv > 0 || back > 0) anyProgress = true;
+    if (recv < ord || back > 0) allFullyReceived = false;
+  });
+  if (allFullyReceived) return 'received';
+  if (anyProgress) return 'partially_received';
+  return 'sent';
+}
+
+function poReceivingStatusLabel(status) {
+  if (status === 'received') return 'Received';
+  if (status === 'partially_received') return 'Partially received';
+  return 'Sent';
 }
 
 function onPOSentJobFilter(val) {
@@ -1632,10 +1673,10 @@ function renderPOSentList() {
   let rows = allRows;
   if (_poSentJobFilter) rows = rows.filter(r => getJobNameForReq(r.req) === _poSentJobFilter);
   if (!rows.length) {
-    const emptyMsg = allRows.length ? 'No sent POs for this job.' : 'No sent POs yet.';
-    listEl.innerHTML = '<div class="empty-state" style="padding:24px 16px"><i class="fa-solid fa-paper-plane"></i><p>' + emptyMsg + '</p></div>';
+    const emptyMsg = allRows.length ? 'No archived POs for this job.' : 'No archived POs yet.';
+    listEl.innerHTML = '<div class="empty-state" style="padding:24px 16px"><i class="fa-solid fa-box-archive"></i><p>' + emptyMsg + '</p></div>';
     if (detailEl && !allRows.length) {
-      detailEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-paper-plane"></i><p>Mark POs as sent from the Requests screen.</p></div>';
+      detailEl.innerHTML = '<div class="empty-state"><i class="fa-solid fa-box-archive"></i><p>Mark POs as sent from the Requests screen to add them here.</p></div>';
     }
     return;
   }
@@ -1658,11 +1699,12 @@ function renderPOSentList() {
       const poNum = (r.po.po_number || '').trim();
       const sup = escHtml(getSupName(r.sid));
       const title = poNum ? 'PO # ' + escHtml(poNum) + ' \u2014 ' + sup : 'PO \u2014 ' + sup;
-      const sentLine = 'SENT \u2014 ' + formatPOSentAt(r.po.sent_at);
+      const poSt = computePOReceivingStatus(r.req, r.sid);
+      const sentLine = poReceivingStatusLabel(poSt) + ' \u2014 ' + formatPOSentAt(r.po.sent_at);
       const active = _activePOSentKey === key ? ' active' : '';
       html += '<div class="po-sent-item' + active + '" onclick="openPOSent(\'' + r.req.id + '\',\'' + r.sid + '\')">';
       html += '<div class="po-sent-po-title">' + title + '</div>';
-      html += '<div class="po-sent-po-sub">' + sentLine + '</div></div>';
+      html += '<div class="po-sent-po-sub po-st-' + (poSt === 'partially_received' ? 'partial' : poSt) + '">' + sentLine + '</div></div>';
     });
   });
   listEl.innerHTML = html;
@@ -1711,6 +1753,7 @@ function aggregateJobsiteAudit(poRows) {
 }
 
 function buildJobsiteAuditHTML(jobName, audit) {
+  const remarks = getJobsiteAuditRemarks(jobName);
   const hstPct = D.settings.hst || 13;
   const hst = hstPct / 100;
   const tax = audit.sub * hst;
@@ -1728,19 +1771,19 @@ function buildJobsiteAuditHTML(jobName, audit) {
   }).join('');
   return '<div class="po-doc" id="jobsite-audit-doc">'
     + '<div class="po-doc-hdr"><div>' + logoHTML
-    + '<div class="po-doc-meta"><div style="font-size:13px;font-weight:700;color:#0D2137;margin-bottom:6px">Jobsite audit</div>'
+    + '<div class="po-doc-meta"><div style="font-size:13px;font-weight:700;color:#0D2137;margin-bottom:6px">Jobsite Total Material Audit</div>'
     + '<strong>Project:</strong> ' + escHtml(jobName) + '<br>'
     + '<strong>Date of first PO:</strong> ' + fmtD(audit.firstDate) + '<br>'
     + '<strong>Date of last PO:</strong> ' + fmtD(audit.lastDate) + '<br>'
     + '<strong>Sent POs combined:</strong> ' + audit.poCount
     + '</div></div>'
-    + '<div style="text-align:right"><span class="po-to-label">Summary</span>'
-    + '<div style="font-size:12px;color:#555;margin-top:6px">Line items with the same description and unit price are combined.</div></div></div>'
+    + '</div>'
+    + '<div style="font-size:12px;color:#555;margin-top:6px"></div></div></div>'
     + '<table class="po-tbl"><thead><tr><th style="width:52%">Description</th><th style="width:10%;text-align:center">QTY</th>'
     + '<th style="width:18%;text-align:right">Unit price</th><th style="width:20%;text-align:right">Line total</th></tr></thead><tbody>'
     + (tbody || '<tr><td colspan="4">No line items</td></tr>')
     + '</tbody></table>'
-    + '<div class="po-totals-wrap"><div style="flex:1"></div><div class="po-tots">'
+    + '<div class="po-totals-wrap"><div class="po-remarks-wrap"><label>Remarks</label><textarea id="jobsite-audit-remarks-inp" class="po-remarks-inp" data-job="' + encodeURIComponent(jobName) + '" onblur="saveJobsiteAuditRemarks(this)">' + escHtml(remarks) + '</textarea></div><div class="po-tots">'
     + '<div class="po-tot-row"><span>Subtotal</span><span>$' + fmt(audit.sub) + '</span></div>'
     + '<div class="po-tot-row"><span>HST (' + hstPct + '%)</span><span>$' + fmt(tax) + '</span></div>'
     + '<div class="po-tot-grand"><span>Grand total</span><span>$' + fmt(total) + '</span></div>'
@@ -1750,7 +1793,7 @@ function buildJobsiteAuditHTML(jobName, audit) {
 function showJobsiteAudit(jobName) {
   const poRows = sentPOsForJob(jobName);
   if (!poRows.length) {
-    toast('No sent POs for this job', 'err');
+    toast('No archived POs for this job', 'err');
     return;
   }
   const audit = aggregateJobsiteAudit(poRows);
@@ -1767,7 +1810,7 @@ function renderJobsiteAuditPane(jobName, audit) {
   const detailEl = document.getElementById('po-sent-detail');
   if (!detailEl) return;
   detailEl.innerHTML = '<div style="margin-bottom:12px">'
-    + '<div style="font-size:15px;font-weight:600">Jobsite audit</div>'
+    + '<div style="font-size:15px;font-weight:600">Jobsite Total Material Audit</div>'
     + '<div style="font-size:12px;color:var(--text3);margin-top:4px">'
     + escHtml(jobName) + ' &middot; ' + audit.poCount + ' sent PO(s) combined</div></div>'
     + buildJobsiteAuditHTML(jobName, audit)
@@ -1941,6 +1984,7 @@ async function syncFieldReceivingStatus(reqId) {
   }
   req.status = next;
   renderReqList();
+  renderPOSentList();
   updateBadge();
   if (activeReq === reqId) {
     if (role === 'field') renderFieldDetail(req);
@@ -2015,6 +2059,7 @@ async function updateFieldReceiving(inp, field) {
     item.qty_backordered = patch.qty_backordered ?? item.qty_backordered;
   }
   await syncFieldReceivingStatus(reqid);
+  renderPOSentList();
   toast('Saved', 'ok');
 }
 
@@ -2029,6 +2074,7 @@ async function receiveAllFieldItem(reqId, itemId, orderedQty) {
     if (item) { item.qty_received = ord; item.qty_backordered = 0; }
     await syncFieldReceivingStatus(reqId);
     renderFieldDetail(req);
+    renderPOSentList();
   }
   toast('Marked all received', 'ok');
 }
