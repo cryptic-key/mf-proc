@@ -6,7 +6,7 @@
 <title>Mayfair Electric — Procurement</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js" onerror="window.__sbLoadFailed=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js" onerror="window.__sbLoadFailed=true"></script>
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -576,6 +576,24 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
   <div class="spinner"></div>
   <div class="loading-msg" id="loading-msg">Connecting…</div>
 </div>
+<script>
+(function () {
+  window.__mfDismissLoader = function () {
+    var o = document.getElementById('loading-overlay');
+    if (o) o.classList.add('hidden');
+    if (window.__mfLoaderTimeout) {
+      clearTimeout(window.__mfLoaderTimeout);
+      window.__mfLoaderTimeout = null;
+    }
+  };
+  window.__mfLoaderTimeout = setTimeout(window.__mfDismissLoader, 6000);
+  window.addEventListener('error', function () {
+    window.__mfDismissLoader();
+    var err = document.getElementById('g-err');
+    if (err && !err.textContent) err.textContent = 'App failed to load. Hard-refresh (Ctrl+Shift+R) or try another browser.';
+  });
+})();
+</script>
 
 <!-- LOGIN GATE -->
 <div class="gate" id="gate">
@@ -1074,12 +1092,18 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.4';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
-const _sc = window.supabase || window.Supabase;
-const sb = _sc?.createClient ? _sc.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let sb = null;
+function initSupabaseClient() {
+  try {
+    const lib = window.supabase || window.Supabase;
+    if (lib && typeof lib.createClient === 'function') return lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch (e) { console.error('Supabase client init failed:', e); }
+  return null;
+}
 const ADMIN_FN = 'swift-handler'; // must match Supabase Edge Functions name exactly
 let _adminUsersCache = [];
 let _detailUserId = null;
@@ -1167,7 +1191,8 @@ function showLoading(msg='Loading…') {
   document.getElementById('loading-msg').textContent = msg;
 }
 function hideLoading() {
-  document.getElementById('loading-overlay')?.classList.add('hidden');
+  if (typeof window.__mfDismissLoader === 'function') window.__mfDismissLoader();
+  else document.getElementById('loading-overlay')?.classList.add('hidden');
 }
 function showBootError(msg) {
   hideLoading();
@@ -1341,7 +1366,7 @@ async function loadRequests() {
 
 function normalizePOState(raw) {
   if (!raw) return {};
-  if (typeof raw === 'string') { try { return JSON.parse(raw) || {}; } catch { return {}; } }
+  if (typeof raw === 'string') { try { return JSON.parse(raw) || {}; } catch (e) { return {}; } }
   return raw;
 }
 
@@ -1412,7 +1437,7 @@ async function loadSettings() {
     if (s.key === 'brand_name2') D.settings.brand_name2 = s.value;
     if (s.key === 'brand_logo') D.settings.brand_logo = s.value;
     if (s.key === 'jobsite_audit_remarks') {
-      try { _jobsiteAuditRemarks = JSON.parse(s.value) || {}; } catch { _jobsiteAuditRemarks = {}; }
+      try { _jobsiteAuditRemarks = JSON.parse(s.value) || {}; } catch (e) { _jobsiteAuditRemarks = {}; }
     }
   });
 }
@@ -2448,20 +2473,26 @@ function renderDetail(req) {
       return `<option value="${a.supId}"${a.supId===asSup?' selected':''}>${a.supName} — $${ps}${unit}</option>`;
     }).join('');
     const qtyCell=itemsLocked
-      ? `<span class="req-readonly-qty">${item.qty}</span>`
-      : `<input class="edit-qty" type="number" min="0" value="${item.qty}" data-reqid="${req.id}" data-itemid="${item.id}" onchange="editItemQtyBtn(this)">`;
+      ? '<span class="req-readonly-qty">' + item.qty + '</span>'
+      : '<input class="edit-qty" type="number" min="0" value="' + item.qty + '" data-reqid="' + req.id + '" data-itemid="' + item.id + '" onchange="editItemQtyBtn(this)">';
     const supCell=itemsLocked
-      ? `<span class="req-readonly-sup">${escHtml(supDisplay)}</span>`
-      : `<select class="sup-sel" data-reqid="${req.id}" data-itemid="${item.id}" onchange="editItemSupBtn(this)">${supOpts}</select>`;
-    return `<tr>
-      <td style="font-size:12px">${item.description}</td>
-      <td style="text-align:center">${qtyCell}</td>
-      <td>${supCell}</td>
-      <td style="font-size:11px;color:var(--amber);font-style:italic;max-width:160px">${note?`<span title="${note.replace(/"/g,'&quot;')}"><i class="fa-solid fa-circle-info" style="margin-right:4px;font-size:10px"></i>${note}</span>`:''}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px">$${rawStr}${unit}</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px">$${fmt(lineT)}</td>
-      ${itemsLocked?'':`<td style="text-align:center"><button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="removeItem('${req.id}','${item.id}')"><i class="fa-solid fa-trash"></i></button></td>`}
-    </tr>`;
+      ? '<span class="req-readonly-sup">' + escHtml(supDisplay) + '</span>'
+      : '<select class="sup-sel" data-reqid="' + req.id + '" data-itemid="' + item.id + '" onchange="editItemSupBtn(this)">' + supOpts + '</select>';
+    const noteCell = note
+      ? '<span title="' + escHtml(note).replace(/"/g, '&quot;') + '"><i class="fa-solid fa-circle-info" style="margin-right:4px;font-size:10px"></i>' + escHtml(note) + '</span>'
+      : '';
+    const delCell = itemsLocked
+      ? ''
+      : '<td style="text-align:center"><button class="btn btn-red" style="padding:3px 8px;font-size:11px" onclick="removeItem(\'' + req.id + '\',\'' + item.id + '\')"><i class="fa-solid fa-trash"></i></button></td>';
+    return '<tr>'
+      + '<td style="font-size:12px">' + escHtml(item.description) + '</td>'
+      + '<td style="text-align:center">' + qtyCell + '</td>'
+      + '<td>' + supCell + '</td>'
+      + '<td style="font-size:11px;color:var(--amber);font-style:italic;max-width:160px">' + noteCell + '</td>'
+      + '<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;font-size:11px">$' + rawStr + unit + '</td>'
+      + '<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:11px">$' + fmt(lineT) + '</td>'
+      + delCell
+      + '</tr>';
   }).join('');
 
   const poState = getReqPOState(req);
@@ -3544,7 +3575,8 @@ function toast(msg,type='ok') {
 // ─────────────────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────────────────
-(async()=>{
+async function startApp() {
+  sb = initSupabaseClient();
   showLoading('Connecting…');
   const fallback = setTimeout(()=>{ hideLoading(); document.getElementById('g-email')?.focus(); }, 8000);
   if (!sb || window.__sbLoadFailed) {
@@ -3619,7 +3651,12 @@ function toast(msg,type='ok') {
   clearTimeout(fallback);
   hideLoading();
   setTimeout(()=>document.getElementById('g-email')?.focus(),80);
-})();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
 </script>
 </body>
 </html>
