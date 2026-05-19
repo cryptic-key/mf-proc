@@ -669,7 +669,9 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
               <option value="pending">Pending review</option>
               <option value="approved">Order in progress</option>
               <option value="paused">Paused</option>
-              <option value="completed">Completed</option>
+              <option value="completed">Order sent to suppliers</option>
+              <option value="partially_received">Order partially received</option>
+              <option value="received">Received</option>
             </select>
           </div>
           <div id="req-list-items"></div>
@@ -838,7 +840,7 @@ code{background:var(--card2);color:var(--blue2);padding:2px 6px;border-radius:4p
 
 <script>
 // Bump APP_VERSION on every deploy (shown on login screen, bottom-right)
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 
 const SUPABASE_URL = 'https://zdxyodqxnrdbprvlbinn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkeHlvZHF4bnJkYnBydmxiaW5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjE5OTgsImV4cCI6MjA5NDQzNzk5OH0.5jmLAKul9CQuxUmJsgalFjEixKp_6qmekYL3wSG8tmE';
@@ -1116,7 +1118,11 @@ function getSubmitterName(req) {
 }
 
 function poStatusesVisible(req) {
-  return req && ['approved', 'completed', 'paused'].includes(req.status);
+  return req && ['approved', 'completed', 'paused', 'partially_received', 'received'].includes(req.status);
+}
+
+function isPostPOSentStatus(status) {
+  return ['completed', 'partially_received', 'received'].includes(status);
 }
 
 function visibleRequests() {
@@ -1129,7 +1135,9 @@ function statusLabel(status) {
   if (status === 'pending') return 'Pending review';
   if (status === 'approved') return 'Order in progress';
   if (status === 'paused') return 'Paused';
-  if (status === 'completed') return 'Completed';
+  if (status === 'completed') return 'Order sent to suppliers';
+  if (status === 'partially_received') return 'Order partially received';
+  if (status === 'received') return 'Received';
   return status || 'Unknown';
 }
 
@@ -1138,6 +1146,8 @@ function statusBadgeClass(status) {
   if (status === 'completed') return 'badge-blue';
   if (status === 'approved') return 'badge-green';
   if (status === 'paused') return 'badge-red';
+  if (status === 'partially_received') return 'badge-amber';
+  if (status === 'received') return 'badge-green';
   return 'badge-gray';
 }
 
@@ -1145,7 +1155,9 @@ function statusHint(status) {
   if (status === 'pending') return 'Your request was submitted and is waiting for the warehouse to review and approve it.';
   if (status === 'approved') return 'Your order is in progress. Purchase orders are being prepared and sent to suppliers.';
   if (status === 'paused') return 'This order has been paused by the warehouse.';
-  if (status === 'completed') return 'This request has been fulfilled and all purchase orders were sent.';
+  if (status === 'completed') return 'All purchase orders have been sent to suppliers. Record quantities received as materials arrive.';
+  if (status === 'partially_received') return 'Some items have been received or are on back order. Update receiving when more arrives.';
+  if (status === 'received') return 'All items on this order have been fully received.';
   return '';
 }
 
@@ -1523,7 +1535,7 @@ function canManualRecomplete(req) {
 
 async function maybeAutoCompleteRequest(reqId) {
   const req = D.requests.find(r => r.id === reqId);
-  if (!req || req.status === 'completed') return;
+  if (!req || isPostPOSentStatus(req.status)) return;
   const bySup = buildBySup(req);
   const keys = Object.keys(bySup);
   if (!keys.length) return;
@@ -1531,7 +1543,7 @@ async function maybeAutoCompleteRequest(reqId) {
   if (keys.every(sid => state[sid]?.sent)) {
     await sb.from('requests').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', reqId);
     req.status = 'completed';
-    toast('All POs sent — request marked completed', 'ok');
+    toast('All POs sent — order sent to suppliers', 'ok');
   }
 }
 
@@ -1701,7 +1713,7 @@ function renderReqList() {
           : (r.status==='pending'||r.status==='approved')
             ? `<button class="btn btn-amber" style="padding:3px 7px;font-size:10px;width:28px;justify-content:center" title="Pause order" onclick="pauseReq('${r.id}')"><i class="fa-solid fa-pause"></i></button>`
             : ''}
-        ${r.status==='completed'
+        ${isPostPOSentStatus(r.status)
           ? `<button class="btn btn-amber" style="padding:3px 7px;font-size:10px;width:28px;justify-content:center" title="Mark incomplete" onclick="uncompleteReq('${r.id}')"><i class="fa-solid fa-rotate-left"></i></button>`
           : canManualRecomplete(r)
             ? `<button class="btn btn-green" style="padding:3px 7px;font-size:10px;width:28px;justify-content:center" title="Mark complete" onclick="completeReq('${r.id}')"><i class="fa-solid fa-check"></i></button>`
@@ -1747,6 +1759,59 @@ function buildFieldPOGroups(req) {
 function fieldQtyVal(item, field) {
   const v = parseFloat(item[field]);
   return Number.isFinite(v) ? v : 0;
+}
+
+function itemsOnSentPOs(req) {
+  const poState = getReqPOState(req);
+  const bySup = buildFieldPOGroups(req);
+  const items = [];
+  Object.keys(bySup).forEach(sid => {
+    if (poState[sid]?.sent) items.push(...bySup[sid]);
+  });
+  return items.length ? items : req.items.filter(i => (parseFloat(i.qty) || 0) > 0);
+}
+
+function computeFieldReceivingStatus(req) {
+  const items = itemsOnSentPOs(req);
+  if (!items.length) return null;
+  let anyProgress = false;
+  let allFullyReceived = true;
+  items.forEach(item => {
+    const ord = parseFloat(item.qty) || 0;
+    if (ord <= 0) return;
+    const recv = fieldQtyVal(item, 'qty_received');
+    const back = fieldQtyVal(item, 'qty_backordered');
+    if (recv > 0 || back > 0) anyProgress = true;
+    if (recv < ord || back > 0) allFullyReceived = false;
+  });
+  if (allFullyReceived) return 'received';
+  if (anyProgress) return 'partially_received';
+  return 'completed';
+}
+
+async function syncFieldReceivingStatus(reqId) {
+  const req = D.requests.find(r => r.id === reqId);
+  if (!req || !isPostPOSentStatus(req.status)) return;
+  const next = computeFieldReceivingStatus(req);
+  if (!next || next === req.status) return;
+  const { error } = await sb.from('requests').update({ status: next }).eq('id', reqId);
+  if (error) {
+    console.error('syncFieldReceivingStatus', error);
+    return;
+  }
+  req.status = next;
+  renderReqList();
+  updateBadge();
+  if (activeReq === reqId) {
+    if (role === 'field') renderFieldDetail(req);
+    else {
+      const fresh = D.requests.find(r => r.id === reqId);
+      if (fresh) renderDetail(fresh);
+    }
+  }
+  if (next === 'received') toast('Order marked as received', 'ok');
+  else if (next === 'partially_received') toast('Order partially received', 'info');
+  else if (next === 'completed') toast('Receiving cleared — order sent to suppliers', 'info');
 }
 
 function renderFieldPendingTable(items) {
@@ -1809,6 +1874,7 @@ async function updateFieldReceiving(inp, field) {
     item.qty_received = patch.qty_received ?? item.qty_received;
     item.qty_backordered = patch.qty_backordered ?? item.qty_backordered;
   }
+  await syncFieldReceivingStatus(reqid);
   toast('Saved', 'ok');
 }
 
@@ -1818,7 +1884,12 @@ async function receiveAllFieldItem(reqId, itemId, orderedQty) {
   if (error) { toast(error.message, 'err'); return; }
   await loadRequests();
   const req = D.requests.find(r => r.id === reqId);
-  if (req) renderFieldDetail(req);
+  if (req) {
+    const item = req.items.find(i => i.id === itemId);
+    if (item) { item.qty_received = ord; item.qty_backordered = 0; }
+    await syncFieldReceivingStatus(reqId);
+    renderFieldDetail(req);
+  }
   toast('Marked all received', 'ok');
 }
 
@@ -1912,7 +1983,7 @@ function renderDetail(req) {
         ${req.status==='pending'?`<button class="btn btn-green" onclick="approveReq('${req.id}')"><i class="fa-solid fa-check"></i> Approve &amp; Start Order</button>`:''}
         ${req.status==='paused'?`<button class="btn btn-green" onclick="resumeReq('${req.id}')"><i class="fa-solid fa-play"></i> Resume Order</button>`:''}
         ${(req.status==='pending'||req.status==='approved')?`<button class="btn btn-amber" onclick="pauseReq('${req.id}')"><i class="fa-solid fa-pause"></i> Pause Order</button>`:''}
-        ${req.status==='completed'?`<button class="btn btn-amber" onclick="uncompleteReq('${req.id}')"><i class="fa-solid fa-rotate-left"></i> Mark as Incomplete</button>`:''}
+        ${isPostPOSentStatus(req.status)?`<button class="btn btn-amber" onclick="uncompleteReq('${req.id}')"><i class="fa-solid fa-rotate-left"></i> Mark as Incomplete</button>`:''}
         ${canManualRecomplete(req)?`<button class="btn btn-green" onclick="completeReq('${req.id}')"><i class="fa-solid fa-circle-check"></i> Mark as Complete</button>`:''}
         <button class="btn btn-red" onclick="deleteReq('${req.id}')"><i class="fa-solid fa-trash"></i> Delete</button>
       </div>
@@ -2007,7 +2078,7 @@ async function removeItem(reqId, itemId) {
 
 async function pauseReq(id) {
   const req = D.requests.find(r => r.id === id);
-  if (!req || req.status === 'paused' || req.status === 'completed') return;
+  if (!req || req.status === 'paused' || isPostPOSentStatus(req.status)) return;
   const paused_from = req.status;
   const { error } = await sb.from('requests').update({ status: 'paused', paused_from }).eq('id', id);
   if (error) {
@@ -2056,7 +2127,7 @@ async function completeReq(id) {
   const fresh = D.requests.find(r => r.id === id);
   if (fresh) renderDetail(fresh);
   updateBadge();
-  toast('Request marked as completed', 'ok');
+  toast('Order sent to suppliers', 'ok');
 }
 async function uncompleteReq(id) {
   const req = D.requests.find(r => r.id === id);
